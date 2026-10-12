@@ -1,0 +1,2565 @@
+<!doctype html>
+<html lang="es">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Plataforma Educativa (Fix)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .hidden-by-default {
+            display: none;
+        }
+        .card {
+            perspective: 1000px;
+        }
+        .card-inner {
+            position: relative;
+            width: 240px;
+            height: 140px;
+            text-align: center;
+            transition: transform 0.6s;
+            transform-style: preserve-3d;
+        }
+        .card:hover .card-inner {
+            transform: rotateY(180deg);
+        }
+        .card-front, .card-back {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            backface-visibility: hidden;
+            border-radius: 0.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 500;
+            padding: 0.75rem;
+            box-sizing: border-box;
+        }
+        .card-front {
+            background-color: #059669;
+            color: white;
+        }
+        .card-back {
+            background-color: #b91c1c;
+            color: white;
+            transform: rotateY(180deg);
+        }
+        .draggable {
+            cursor: grab;
+            background-color: #dbeafe;
+            padding: 0.5rem;
+            border-radius: 0.5rem;
+            margin: 0.25rem;
+            display: inline-block;
+            user-select: none;
+        }
+        .dropzone {
+            border: 2px dashed #94a3b8;
+            padding: 1rem;
+            border-radius: 0.5rem;
+            min-height: 50px;
+            transition: border-color 0.25s, background-color 0.25s;
+        }
+        .btn-file {
+            background: #2563eb;
+            color: white;
+            padding: .4rem .75rem;
+            border-radius: .4rem;
+            cursor: pointer;
+        }
+        pre.map {
+            white-space: pre-wrap;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, monospace;
+        }
+        .link-img {
+            color: #1d4ed8;
+            text-decoration: underline;
+            cursor: pointer;
+        }
+    </style>
+</head>
+
+<body class="bg-gray-50 text-gray-800">
+    <div class="max-w-6xl mx-auto p-6">
+        <header class="mb-6">
+            <h1 class="text-3xl font-bold text-indigo-600">Plataforma Educativa Interactiva</h1>
+            <p class="text-sm text-gray-600 mt-2">
+                Recursos sobre <strong>cualquier contenido educativo, que desees agregar</strong>. Incluye quizzes secuenciales, glosario, flashcards, estructuras (imágenes via links), casos y actividades interactivas. Progreso guardado localmente.
+            </p>
+
+            <nav class="mt-4 flex flex-wrap gap-2">
+                <button class="btn" data-target="home">Inicio</button>
+                <button class="btn" data-target="quiz">Quiz</button>
+                <button class="btn" data-target="gloss">Glosario</button>
+                <button class="btn" data-target="flash">Flashcards</button>
+                <button class="btn" data-target="estructuras">Estructuras</button>
+                <button class="btn" data-target="casos">Casos</button>
+                <button class="btn" data-target="interactivo">Interactivo</button>
+                <button class="btn" data-target="map">Mapas</button>
+                <button class="btn" data-target="dash">Dashboard</button>
+                <label class="btn-file ml-2">
+                    Importar contenido (JSON)
+                    <input id="fileInput" type="file" accept="application/json" style="display:none">
+                </label>
+                <button id="exportJSON" class="btn">Exportar contenido</button>
+            </nav>
+        </header>
+
+        <!-- Home -->
+        <section id="home" class="bg-white p-5 rounded shadow">
+            <h2 id="homeTitle" class="text-xl font-semibold mb-2">Bienvenido</h2>
+
+            <p id="homeDescription" class="text-sm text-gray-700">
+                La plataforma está diseñada para estudiar y practicar los tres bloques fundamentales:
+                <strong>Endomembrana</strong> (síntesis, procesamiento y tráfico de proteínas/lípidos),
+                <strong>Estructuras y Procesos</strong> (ribosomas, lisosomas, RE, Golgi y mecanismos moleculares)
+                y <strong>Mitocondrias y Metabolismo – Plastidios y Cloroplastos</strong> (bioenergética, ATP, fotosíntesis).
+                Usa las herramientas interactivas para autoevaluación.
+            </p>
+
+            <details class="mt-4">
+                <summary class="cursor-pointer font-semibold">
+                    Editar contenido de Inicio (JSON)
+                </summary>
+
+                <textarea id="homeJSON"
+                    style="width:100%;height:160px"
+                    class="mt-2 border rounded p-2 font-mono text-sm">
+                    {
+                    "title": "Bienvenido",
+                    "description": "Texto de introducción editable desde JSON."
+                    }
+                </textarea>
+
+                <div class="mt-2 flex gap-2">
+                    <button id="loadHomeJSON" class="px-3 py-1 bg-green-600 text-white rounded">
+                        Cargar Inicio
+                    </button>
+                    <button id="exportHomeJSON" class="px-3 py-1 bg-gray-600 text-white rounded">
+                        Exportar Inicio
+                    </button>
+                </div>
+            </details>
+        </section>
+
+        <!-- Quiz -->
+        <section id="quiz" class="hidden-by-default bg-white p-5 rounded shadow">
+            <h2 class="text-lg font-semibold mb-2">Quiz (secuencial por tema)</h2>
+            <div class="flex gap-3 mb-3">
+                <button id="prevQ" class="px-3 py-1 bg-gray-500 text-white rounded">Anterior</button>
+                <button id="nextQ" class="px-3 py-1 bg-indigo-600 text-white rounded">Siguiente</button>
+                <button id="showAll" class="px-3 py-1 bg-gray-600 text-white rounded">Mostrar preguntas (JSON)</button>
+                <select id="quizTopic" class="rounded border px-2"></select>
+            </div>
+
+            <div id="quizArea">
+                <p id="qText" class="font-medium mb-2">
+                    Cargando pregunta...
+                </p>
+                <div id="qOptions" class="space-y-2 mb-3"></div>
+                <button id="checkA" class="px-3 py-1 bg-amber-500 text-white rounded">Verificar</button>
+                <p id="qResult" class="mt-2 text-sm"></p>
+                <p class="text-xs text-gray-500 mt-2">
+                    Pregunta <span id="qNumber">0</span> de <span id="qTotal">0</span>
+                </p>
+            </div>
+
+            <details class="mt-4">
+                <summary class="cursor-pointer">Ver/Editar inventario de preguntas (JSON)</summary>
+                <textarea id="questionsJSON" style="width:100%;height:200px" class="mt-2 border rounded p-2 font-mono text-sm"></textarea>
+                <div class="mt-2">
+                    <button id="loadQuestions" class="px-3 py-1 bg-green-600 text-white rounded">Cargar preguntas desde JSON</button>
+                </div>
+            </details>
+            <details class="mt-4">
+                <summary class="cursor-pointer">Ver/Editar bloques del quiz (JSON)</summary>
+                <textarea id="quizTopicsJSON" style="width:100%;height:160px" class="mt-2 border rounded p-2 font-mono text-sm"></textarea>
+                <div class="mt-2">
+                    <button id="loadQuizTopics" class="px-3 py-1 bg-green-600 text-white rounded">Cargar bloques desde JSON</button>
+                    <button id="exportQuizTopics" class="px-3 py-1 bg-gray-600 text-white rounded">Exportar bloques</button>
+                </div>
+            </details>
+        </section>
+
+        <!-- Glosario -->
+        <section id="gloss" class="hidden-by-default bg-white p-5 rounded shadow">
+            <h2 class="text-lg font-semibold mb-2">Glosario (términos técnicos)</h2>
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <input id="glossSearch" placeholder="Buscar término..." class="w-full p-2 border rounded mb-3" />
+                    <div id="glossList" style="max-height:420px;overflow:auto"></div>
+                </div>
+                <div>
+                    <h3 class="font-semibold">Agregar/editar término</h3>
+                    <input id="termInput" placeholder="Término" class="w-full p-2 border rounded mb-2" />
+                    <textarea id="defInput" placeholder="Definición" class="w-full p-2 border rounded mb-2" style="height:160px"></textarea>
+                    <div class="flex gap-2">
+                        <button id="addTerm" class="px-3 py-1 bg-green-600 text-white rounded">Agregar término</button>
+                        <button id="clearGloss" class="px-3 py-1 bg-red-500 text-white rounded">Borrar todo</button>
+                    </div>
+                </div>
+            </div>
+
+            <details class="mt-4">
+                <summary>Exportar/Importar glosario (JSON)</summary>
+                <textarea id="glossJSON" style="width:100%;height:140px" class="mt-2 border rounded p-2 font-mono text-sm"></textarea>
+                <div class="mt-2">
+                    <button id="importGloss" class="px-3 py-1 bg-blue-600 text-white rounded">Importar glosario</button>
+                    <button id="exportGloss" class="px-3 py-1 bg-gray-600 text-white rounded">Exportar glosario</button>
+                </div>
+            </details>
+        </section>
+
+        <!-- Flashcards -->
+        <section id="flash" class="hidden-by-default bg-white p-5 rounded shadow">
+            <h2 class="text-lg font-semibold mb-2">Flashcards (giran al hacer hover o clic)</h2>
+            <div class="flex flex-wrap gap-4" id="flashContainer" style="min-height:160px"></div>
+
+            <details class="mt-4">
+                <summary>Administrar flashcards (JSON)</summary>
+                <textarea id="flashJSON" style="width:100%;height:160px" class="mt-2 border rounded p-2 font-mono text-sm"></textarea>
+                <div class="mt-2">
+                    <button id="loadFlash" class="px-3 py-1 bg-green-600 text-white rounded">Cargar flashcards</button>
+                    <button id="exportFlash" class="px-3 py-1 bg-gray-600 text-white rounded">Exportar flashcards</button>
+                </div>
+            </details>
+        </section>
+
+        <!-- Estructuras -->
+        <section id="estructuras" class="hidden-by-default bg-white p-5 rounded shadow">
+            <h2 class="text-lg font-semibold mb-2">Estructuras: identificación (imágenes como links)</h2>
+            <p class="text-sm text-gray-700 mb-3">
+                Haz clic en el enlace para abrir la imagen en nueva pestaña y luego elige la opción correcta.
+            </p>
+
+            <div id="structuresArea" class="space-y-4"></div>
+
+            <details class="mt-4">
+                <summary>Administrar estructuras (JSON)</summary>
+                <textarea id="structuresJSON" style="width:100%;height:160px" class="mt-2 border rounded p-2 font-mono text-sm"></textarea>
+                <div class="mt-2">
+                    <button id="loadStructures" class="px-3 py-1 bg-green-600 text-white rounded">Cargar estructuras</button>
+                    <button id="exportStructures" class="px-3 py-1 bg-gray-600 text-white rounded">Exportar estructuras</button>
+                </div>
+            </details>
+        </section>
+
+        <!-- Casos -->
+        <section id="casos" class="hidden-by-default bg-white p-5 rounded shadow">
+            <h2 class="text-lg font-semibold mb-2">Casos de análisis (escenarios clínico/experimentales)</h2>
+            <div id="casesArea"></div>
+
+            <details class="mt-4">
+                <summary>Administrar casos (JSON)</summary>
+                <textarea id="casesJSON" style="width:100%;height:160px" class="mt-2 border rounded p-2 font-mono text-sm"></textarea>
+                <div class="mt-2">
+                    <button id="loadCases" class="px-3 py-1 bg-green-600 text-white rounded">Cargar casos</button>
+                    <button id="exportCases" class="px-3 py-1 bg-gray-600 text-white rounded">Exportar casos</button>
+                </div>
+            </details>
+        </section>
+
+        <!-- Interactivo -->
+        <section id="interactivo" class="hidden-by-default bg-white p-5 rounded shadow">
+            <h2 class="text-lg font-semibold mb-2">Interactivo: arrastra y suelta / completar</h2>
+            <p class="text-sm mb-3">
+                Ejercicios arrastrar-soltar y completar. Los ejercicios se cargan desde JSON (50 ítems) para mantener compatibilidad.
+            </p>
+
+            <div id="interactiveArea" class="space-y-4"></div>
+
+            <details class="mt-4">
+                <summary>Administrar interactivos (JSON)</summary>
+                <textarea id="interJSON" style="width:100%;height:160px" class="mt-2 border rounded p-2 font-mono text-sm"></textarea>
+                <div class="mt-2">
+                    <button id="loadInter" class="px-3 py-1 bg-green-600 text-white rounded">Cargar interactivos</button>
+                    <button id="exportInter" class="px-3 py-1 bg-gray-600 text-white rounded">Exportar interactivos</button>
+                </div>
+            </details>
+        </section>
+
+        <!-- Mapas -->
+        <section id="map" class="hidden-by-default bg-white p-5 rounded shadow">
+            <h2 class="text-lg font-semibold mb-2">Mapas conceptuales</h2>
+            <div id="mapsDisplay" class="grid grid-cols-1 gap-4 mb-3"></div>
+
+            <details class="mt-4">
+                <summary>Administrar mapas (JSON)</summary>
+                <textarea id="mapsJSON" style="width:100%;height:160px" class="mt-2 border rounded p-2 font-mono text-sm"></textarea>
+                <div class="mt-2">
+                    <button id="loadMaps" class="px-3 py-1 bg-green-600 text-white rounded">Cargar mapas</button>
+                    <button id="exportMaps" class="px-3 py-1 bg-gray-600 text-white rounded">Exportar mapas</button>
+                </div>
+            </details>
+        </section>
+
+        <!-- Dashboard -->
+        <section id="dash" class="hidden-by-default bg-white p-5 rounded shadow">
+            <h2 class="text-lg font-semibold mb-2">Dashboard de progreso</h2>
+
+            <p class="text-sm">
+                Puntaje total:
+                <span id="score">0</span> /
+                <span id="maxScore">0</span>
+            </p>
+
+            <p class="text-sm mt-1">
+                Progreso general:
+                <span id="scorePercent">0%</span>
+            </p>
+
+            <button id="reset" class="mt-2 px-3 py-1 bg-red-500 text-white rounded">
+                Reiniciar progreso
+            </button>
+
+            <div class="mt-4">
+                <h3 class="font-semibold">Progreso por sección</h3>
+                <ul class="list-disc ml-6 text-sm">
+                    <li>Quiz: <span id="progressQuiz" class="font-semibold text-blue-600">0 / 0 - 0%</span></li>
+                    <li>Glosario: <span id="progressGloss" class="font-semibold text-green-600">0 / 0 - 0%</span></li>
+                    <li>Flashcards: <span id="progressFlash" class="font-semibold text-purple-600">0 / 0 - 0%</span></li>
+                    <li>Estructuras: <span id="progressStructures" class="font-semibold text-indigo-600">0 / 0 - 0%</span></li>
+                    <li>Casos: <span id="progressCases" class="font-semibold text-red-600">0 / 0 - 0%</span></li>
+                    <li>Interactivo: <span id="progressInteractive" class="font-semibold text-amber-600">0 / 0 - 0%</span></li>
+                    <li>Mapas: <span id="progressMaps" class="font-semibold text-teal-600">0 / 0 - 0%</span></li>
+                </ul>
+            </div>
+        </section>
+    </div>
+
+    <script>
+        function normalizeText(value) {
+            return String(value || '')
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '')
+            .toLowerCase()
+            .replace(/\s+/g, ' ')
+            .trim();
+        }
+
+        /* --------------------------
+ESTRUCTURA DE DATOS (DB) - muestra mínima inicial para pruebas.
+Reemplaza con tu JSON grande importándolo.
+-------------------------- */
+        let DB = {
+            "quizTopics": [{
+                "value": "estelas",
+                "label": "1) Tipos de estela"
+            },
+                {
+                    "value": "anatomia_tallo",
+                    "label": "2) Anatomía del tallo"
+                },
+                {
+                    "value": "morfologia_tallo",
+                    "label": "3) Morfología y modificaciones del tallo"
+                },
+                {
+                    "value": "crecimiento_secundario",
+                    "label": "4) Crecimiento secundario"
+                },
+                {
+                    "value": "plantas_sin_semilla",
+                    "label": "5) Tallos de plantas vasculares sin semilla"
+                },
+                {
+                    "value": "comparacion_tallo_raiz",
+                    "label": "6) Comparación anatómica entre tallo y raíz"
+                },
+                {
+                    "value": "muestras_practica",
+                    "label": "7) Identificación de muestras de la práctica"
+                },
+                {
+                    "value": "tejidos_y_funciones",
+                    "label": "8) Tejidos vegetales y función"
+                }],
+            "questions": [{
+                "id": "q1",
+                "topic": "estelas",
+                "text": "¿Qué característica distingue a una protoestela de una sifonoestela?",
+                "options": [
+                    "La protoestela carece de médula parenquimática central, mientras la sifonoestela presenta médula",
+                    "La protoestela siempre presenta haces vasculares dispersos y la sifonoestela carece de floema",
+                    "La protoestela solo aparece en monocotiledóneas y la sifonoestela en gimnospermas",
+                    "La protoestela presenta crecimiento secundario y la sifonoestela no"
+                ],
+                "answer": 0,
+                "explain": "Las protoestelas presentan un cilindro vascular central sin médula parenquimática, mientras las sifonoestelas poseen una médula central."
+            },
+                {
+                    "id": "q2",
+                    "topic": "estelas",
+                    "text": "¿Cuál tipo de estela presenta el xilema fragmentado en placas que se alternan con floema?",
+                    "options": [
+                        "Haploestela",
+                        "Actinostela",
+                        "Plectostela",
+                        "Atactostela"
+                    ],
+                    "answer": 2,
+                    "explain": "La plectostela es una protoestela en la que el xilema se encuentra dividido en placas paralelas intercaladas con regiones de floema."
+                },
+                {
+                    "id": "q3",
+                    "topic": "estelas",
+                    "text": "¿Qué tipo de estela se caracteriza por haces vasculares independientes dispuestos en un anillo?",
+                    "options": [
+                        "Eustela",
+                        "Dictioestela",
+                        "Plectostela",
+                        "Haploestela"
+                    ],
+                    "answer": 0,
+                    "explain": "La eustela presenta haces vasculares discretos organizados en un anillo alrededor de la médula."
+                },
+                {
+                    "id": "q4",
+                    "topic": "estelas",
+                    "text": "¿Qué tipo de estela se identifica en el tallo de Pennisetum sp.?",
+                    "options": [
+                        "Dictioestela",
+                        "Eustela",
+                        "Plectostela",
+                        "Atactostela"
+                    ],
+                    "answer": 3,
+                    "explain": "El tallo de Pennisetum sp. presenta atactostela, caracterizada por haces vasculares dispersos en el parénquima fundamental."
+                },
+                {
+                    "id": "q5",
+                    "topic": "estelas",
+                    "text": "¿Qué tipo de estela se observa en el rizoma de Pteridium aquilinum?",
+                    "options": [
+                        "Atactostela",
+                        "Dictioestela",
+                        "Actinostela",
+                        "Haploestela"
+                    ],
+                    "answer": 1,
+                    "explain": "El rizoma de Pteridium aquilinum presenta una dictioestela, constituida por múltiples meristelas o haces vasculares independientes inmersos en tejido fundamental."
+                },
+                {
+                    "id": "q6",
+                    "topic": "anatomia_tallo",
+                    "text": "En un corte transversal de tallo, ¿qué tejido vascular se encuentra generalmente hacia el interior respecto al floema?",
+                    "options": [
+                        "Epidermis",
+                        "Xilema",
+                        "Peridermis",
+                        "Colénquima"
+                    ],
+                    "answer": 1,
+                    "explain": "En los haces vasculares del tallo, el xilema se ubica hacia el interior y el floema hacia el exterior."
+                },
+                {
+                    "id": "q7",
+                    "topic": "anatomia_tallo",
+                    "text": "¿Qué combinación corresponde a la preparación de fluoroglucina utilizada en los cortes anatómicos de la práctica?",
+                    "options": [
+                        "Agua → fluoroglucina → 1 min → HCl concentrado",
+                        "HCl → agua → fluoroglucina → 10 min",
+                        "Fluoroglucina → alcohol → agua → HCl diluido",
+                        "Agua → HCl → fluoroglucina → 1 h"
+                    ],
+                    "answer": 0,
+                    "explain": "La secuencia indicada es colocar una gota de agua, agregar fluoroglucina, esperar 1 minuto y añadir HCl concentrado."
+                },
+                {
+                    "id": "q8",
+                    "topic": "anatomia_tallo",
+                    "text": "¿Qué componente de la pared celular explica principalmente la coloración rojiza producida por fluoroglucina-HCl?",
+                    "options": [
+                        "Celulosa",
+                        "Pectina",
+                        "Lignina",
+                        "Cutina"
+                    ],
+                    "answer": 2,
+                    "explain": "La reacción de fluoroglucina-HCl resalta tejidos lignificados, produciendo una tonalidad rojiza o magenta característica."
+                },
+                {
+                    "id": "q9",
+                    "topic": "anatomia_tallo",
+                    "text": "¿Qué característica anatómica corresponde al tallo de Impatiens balsamina?",
+                    "options": [
+                        "Atactostela con haces dispersos",
+                        "Plectostela con placas de xilema",
+                        "Eustela primaria con haces vasculares en anillo alrededor de la médula",
+                        "Dictioestela con meristelas independientes"
+                    ],
+                    "answer": 2,
+                    "explain": "Impatiens balsamina presenta una eustela primaria, con haces vasculares discretos organizados alrededor de una médula central amplia."
+                },
+                {
+                    "id": "q10",
+                    "topic": "anatomia_tallo",
+                    "text": "¿Qué característica permite reconocer una atactostela en un corte transversal de Pennisetum sp.?",
+                    "options": [
+                        "Un núcleo macizo de xilema rodeado por floema",
+                        "Haces vasculares dispersos dentro del parénquima fundamental",
+                        "Placas paralelas de xilema intercaladas con floema",
+                        "Haces vasculares formando un anillo continuo"
+                    ],
+                    "answer": 1,
+                    "explain": "La atactostela se caracteriza por haces vasculares colaterales cerrados dispersos en el parénquima fundamental."
+                },
+                {
+                    "id": "q11",
+                    "topic": "anatomia_tallo",
+                    "text": "¿Qué estructura delimita individualmente las meristelas observadas en el rizoma de Pteridium aquilinum?",
+                    "options": [
+                        "Endodermis",
+                        "Médula",
+                        "Peridermis",
+                        "Cambium vascular"
+                    ],
+                    "answer": 0,
+                    "explain": "En la preparación de Pteridium aquilinum, la endodermis delimita individualmente cada haz vascular o meristela."
+                },
+                {
+                    "id": "q12",
+                    "topic": "anatomia_tallo",
+                    "text": "¿Qué tejidos pueden reconocerse en el corte transversal del tallo de Pennisetum sp.?",
+                    "options": [
+                        "Solo xilema y floema",
+                        "Epidermis, colénquima, parénquima, esclerénquima, haces vasculares y cavidad medular",
+                        "Únicamente epidermis y peridermis",
+                        "Solo médula y cambium vascular"
+                    ],
+                    "answer": 1,
+                    "explain": "La preparación permite identificar epidermis, tejidos subepidérmicos, esclerénquima, parénquima fundamental, haces vasculares y cavidad central."
+                },
+                {
+                    "id": "q13",
+                    "topic": "crecimiento_secundario",
+                    "text": "¿Qué tejido reemplaza a la epidermis durante el crecimiento secundario de un tallo leñoso?",
+                    "options": [
+                        "Médula",
+                        "Floema",
+                        "Peridermis",
+                        "Xilema primario"
+                    ],
+                    "answer": 2,
+                    "explain": "Durante el crecimiento secundario, la peridermis constituye la cubierta protectora secundaria y reemplaza funcionalmente a la epidermis."
+                },
+                {
+                    "id": "q14",
+                    "topic": "crecimiento_secundario",
+                    "text": "En Senna pistaciifolia adulta, ¿qué tejido constituye la mayor parte de la madera y se localiza hacia el interior del cambium?",
+                    "options": [
+                        "Floema secundario",
+                        "Xilema secundario",
+                        "Epidermis",
+                        "Colénquima"
+                    ],
+                    "answer": 1,
+                    "explain": "El cambium vascular produce xilema secundario hacia el interior y floema secundario hacia el exterior. El xilema secundario constituye la mayor parte de la madera."
+                },
+                {
+                    "id": "q15",
+                    "topic": "crecimiento_secundario",
+                    "text": "¿Qué diferencia permite comparar un tallo joven y uno adulto de Retrophyllum rospigliosii?",
+                    "options": [
+                        "El tallo joven carece completamente de tejidos vasculares",
+                        "El tallo adulto puede presentar mayor desarrollo de xilema secundario y radios del xilema",
+                        "El tallo adulto pierde completamente el floema",
+                        "El tallo joven siempre presenta atactostela"
+                    ],
+                    "answer": 1,
+                    "explain": "El desarrollo secundario incrementa la proporción de xilema secundario y permite reconocer estructuras asociadas como radios del xilema."
+                },
+                {
+                    "id": "q16",
+                    "topic": "morfologia_tallo",
+                    "text": "¿Qué estructura del tallo corresponde al punto donde se originan hojas o ramas?",
+                    "options": [
+                        "Entrenudo",
+                        "Nudo",
+                        "Lenticela",
+                        "Médula"
+                    ],
+                    "answer": 1,
+                    "explain": "El nudo es la región del tallo donde se insertan hojas y pueden originarse ramas o yemas axilares."
+                },
+                {
+                    "id": "q17",
+                    "topic": "morfologia_tallo",
+                    "text": "¿Qué estructura se identifica en Cucurbita pepo y facilita el crecimiento trepador?",
+                    "options": [
+                        "Lenticela",
+                        "Zarcillo",
+                        "Rizoma",
+                        "Estoma"
+                    ],
+                    "answer": 1,
+                    "explain": "Cucurbita pepo presenta zarcillos, estructuras especializadas que permiten sujetarse a soportes durante el crecimiento."
+                },
+                {
+                    "id": "q18",
+                    "topic": "morfologia_tallo",
+                    "text": "¿Cuál de las siguientes estructuras corresponde a un tallo modificado para almacenamiento?",
+                    "options": [
+                        "Tubérculo de Solanum tuberosum",
+                        "Tricoma de Impatiens balsamina",
+                        "Lenticela de Senna pistaciifolia",
+                        "Yema de Cucurbita pepo"
+                    ],
+                    "answer": 0,
+                    "explain": "El tubérculo de papa es un tallo modificado especializado principalmente en almacenamiento y presenta yemas u ojos."
+                },
+                {
+                    "id": "q19",
+                    "topic": "plantas_sin_semilla",
+                    "text": "En un corte transversal de Equisetum, ¿qué aspectos anatómicos deben registrarse según la práctica?",
+                    "options": [
+                        "Epidermis, corteza, parénquima, tejidos mecánicos y organización vascular",
+                        "Únicamente peridermis y anillos de crecimiento",
+                        "Solo flores, frutos y semillas",
+                        "Exclusivamente cambium vascular y madera"
+                    ],
+                    "answer": 0,
+                    "explain": "La guía indica reconocer epidermis, corteza, parénquima y tejidos mecánicos, y a mayor aumento identificar xilema, floema, organización vascular y tipo de estela."
+                },
+                {
+                    "id": "q20",
+                    "topic": "plantas_sin_semilla",
+                    "text": "¿Cuál es el propósito de observar las preparaciones a 10X y luego a 40X?",
+                    "options": [
+                        "Usar 10X para el panorama general y 40X para distinguir tejidos y detalles vasculares",
+                        "Observar únicamente el color de la muestra",
+                        "Evitar identificar la epidermis",
+                        "Medir el crecimiento anual del tallo"
+                    ],
+                    "answer": 0,
+                    "explain": "El menor aumento facilita la orientación general del corte; el mayor aumento ayuda a localizar y distinguir xilema, floema y otros tejidos."
+                },
+                {
+                    "id": "q21",
+                    "topic": "muestras_practica",
+                    "text": "¿Qué muestra de la práctica se utiliza como ejemplo de tallo-rizoma de helecho en placa fija?",
+                    "options": [
+                        "Pteridium aquilinum",
+                        "Allium cepa",
+                        "Cucurbita pepo",
+                        "Senna pistaciifolia"
+                    ],
+                    "answer": 0,
+                    "explain": "La guía especifica la observación de una placa fija del tallo-rizoma de Pteridium aquilinum."
+                },
+                {
+                    "id": "q22",
+                    "topic": "muestras_practica",
+                    "text": "¿Qué estructuras se buscan en el corte de tallo viejo de Retrophyllum rospigliosii?",
+                    "options": [
+                        "Xilema primario y secundario, floema, radios del xilema, anillos de crecimiento y conductos resiníferos",
+                        "Solo tricomas y estomas foliares",
+                        "Únicamente haces dispersos sin tejidos secundarios",
+                        "Raíces laterales y pelos absorbentes"
+                    ],
+                    "answer": 0,
+                    "explain": "La práctica compara tallos jóvenes y viejos de pino romerón e incluye la búsqueda de tejidos vasculares, radios, anillos, médula con células pétreas y conductos resiníferos."
+                },
+                {
+                    "id": "q23",
+                    "topic": "muestras_practica",
+                    "text": "¿Qué dos eudicotiledóneas se comparan para estudiar el crecimiento primario y la organización de la estela?",
+                    "options": [
+                        "Impatiens balsamina y Cucurbita pepo",
+                        "Allium cepa y Zingiber officinale",
+                        "Pennisetum sp. y Cynodon sp.",
+                        "Lycopodium sp. y Equisetum sp."
+                    ],
+                    "answer": 0,
+                    "explain": "La guía solicita cortes transversales de Impatiens balsamina y Cucurbita pepo para comparar tejidos y organización vascular durante el crecimiento primario."
+                },
+                {
+                    "id": "q24",
+                    "topic": "crecimiento_secundario",
+                    "text": "¿Hacia qué lado del cambium vascular se forma principalmente el xilema secundario?",
+                    "options": [
+                        "Hacia el exterior",
+                        "Hacia el interior",
+                        "Alternando exclusivamente con la epidermis",
+                        "Solo en los nudos"
+                    ],
+                    "answer": 1,
+                    "explain": "El cambium vascular produce xilema secundario hacia el interior y floema secundario hacia el exterior."
+                },
+                {
+                    "id": "q25",
+                    "topic": "crecimiento_secundario",
+                    "text": "¿Qué representan los anillos de crecimiento que pueden observarse en un tallo leñoso?",
+                    "options": [
+                        "Capas sucesivas de crecimiento del xilema secundario",
+                        "Anillos de epidermis que se renuevan diariamente",
+                        "Hileras de estomas hundidos",
+                        "Fragmentos de floema primario exclusivamente"
+                    ],
+                    "answer": 0,
+                    "explain": "Los anillos reflejan variaciones sucesivas en la producción del xilema secundario; su visibilidad depende de la especie y de las condiciones de crecimiento."
+                },
+                {
+                    "id": "q26",
+                    "topic": "tejidos_y_funciones",
+                    "text": "¿Cuál es la función principal del colénquima en tallos jóvenes?",
+                    "options": [
+                        "Soporte flexible en órganos en crecimiento",
+                        "Transporte de agua por elementos traqueales",
+                        "Producción de semillas",
+                        "Intercambio gaseoso exclusivo de la raíz"
+                    ],
+                    "answer": 0,
+                    "explain": "El colénquima aporta soporte mecánico flexible, especialmente en órganos jóvenes que aún crecen."
+                },
+                {
+                    "id": "q27",
+                    "topic": "tejidos_y_funciones",
+                    "text": "¿Qué característica diferencia principalmente al esclerénquima del colénquima?",
+                    "options": [
+                        "El esclerénquima suele presentar paredes secundarias lignificadas y aporta soporte rígido",
+                        "El esclerénquima es siempre un tejido conductor vivo sin pared",
+                        "El colénquima forma todos los vasos del xilema",
+                        "El colénquima solo aparece en la madera muerta"
+                    ],
+                    "answer": 0,
+                    "explain": "El esclerénquima suele tener paredes secundarias engrosadas y frecuentemente lignificadas; el colénquima tiene paredes primarias desigualmente engrosadas y soporte flexible."
+                },
+                {
+                    "id": "q28",
+                    "topic": "morfologia_tallo",
+                    "text": "¿Qué rasgo permite distinguir un tubérculo de papa de una raíz tuberosa?",
+                    "options": [
+                        "El tubérculo de papa es un tallo modificado con yemas u ojos",
+                        "El tubérculo carece de todo tejido de reserva",
+                        "La raíz tuberosa siempre presenta nudos y entrenudos evidentes",
+                        "Ambos se identifican únicamente por su color"
+                    ],
+                    "answer": 0,
+                    "explain": "Los ojos de la papa corresponden a yemas situadas en un tallo modificado; las raíces tuberosas no presentan esa organización nodal propia del tallo."
+                },
+                {
+                    "id": "q29",
+                    "topic": "morfologia_tallo",
+                    "text": "¿Cuál es la característica estructural básica de un bulbo tunicado como Allium cepa?",
+                    "options": [
+                        "Tallo corto acompañado de hojas modificadas carnosas de reserva",
+                        "Un único entrenudo largo con zarcillos",
+                        "Un sistema de meristelas de helecho",
+                        "Un tallo aéreo leñoso con anillos de crecimiento"
+                    ],
+                    "answer": 0,
+                    "explain": "En la cebolla, el bulbo incluye un tallo muy corto y hojas modificadas carnosas que almacenan reservas; la cubierta externa seca forma túnicas."
+                },
+                {
+                    "id": "q30",
+                    "topic": "morfologia_tallo",
+                    "text": "¿Qué observación ayuda a reconocer un rizoma como tallo y no como raíz?",
+                    "options": [
+                        "Presencia de nudos, yemas y hojas escuamiformes o cicatrices foliares",
+                        "Presencia exclusiva de pelos absorbentes y cofia",
+                        "Ausencia absoluta de yemas",
+                        "Presencia de una caliptra terminal como rasgo dominante"
+                    ],
+                    "answer": 0,
+                    "explain": "Los rizomas son tallos, por lo que pueden presentar nudos, yemas y cicatrices foliares; las raíces presentan organización y estructuras propias distintas."
+                },
+                {
+                    "id": "q31",
+                    "topic": "comparacion_tallo_raiz",
+                    "text": "¿Cuál combinación compara correctamente tallo y raíz?",
+                    "options": [
+                        "El tallo suele presentar nudos y entrenudos; la raíz suele presentar cofia y zona de pelos absorbentes",
+                        "La raíz presenta hojas y yemas axilares en todos los casos",
+                        "El tallo siempre carece de xilema y floema",
+                        "La raíz siempre presenta médula amplia y el tallo nunca la presenta"
+                    ],
+                    "answer": 0,
+                    "explain": "Nudos, entrenudos y yemas son rasgos morfológicos típicos del tallo; cofia y zona pilífera son rasgos característicos de la raíz."
+                },
+                {
+                    "id": "q32",
+                    "topic": "muestras_practica",
+                    "text": "¿Qué estructuras deben buscarse en el tallo de Retrophyllum rospigliosii además de los tejidos vasculares?",
+                    "options": [
+                        "Conductos resiníferos y, si son visibles, anillos de crecimiento y radios del xilema",
+                        "Ovarios, estigmas y pétalos",
+                        "Cofia y pelos radicales",
+                        "Únicamente estomas de la hoja"
+                    ],
+                    "answer": 0,
+                    "explain": "La guía incluye la identificación de conductos resiníferos, anillos de crecimiento, médula con células pétreas y radios del xilema."
+                },
+                {
+                    "id": "q33",
+                    "topic": "anatomia_tallo",
+                    "text": "¿Cuál es la función general del parénquima fundamental en un tallo?",
+                    "options": [
+                        "Relleno, almacenamiento y, según el órgano, otras funciones metabólicas",
+                        "Conducir exclusivamente agua mediante vasos lignificados",
+                        "Formar únicamente la cutícula",
+                        "Ser siempre el meristemo lateral responsable de la madera"
+                    ],
+                    "answer": 0,
+                    "explain": "El parénquima constituye buena parte del tejido fundamental y puede intervenir en almacenamiento, fotosíntesis en tallos verdes y reparación."
+                },
+                {
+                    "id": "q34",
+                    "topic": "crecimiento_secundario",
+                    "text": "¿Qué tejido protector secundario se relaciona con las lenticelas?",
+                    "options": [
+                        "Peridermis",
+                        "Médula",
+                        "Floema primario solamente",
+                        "Endodermis de la raíz exclusivamente"
+                    ],
+                    "answer": 0,
+                    "explain": "Las lenticelas son regiones de la peridermis que facilitan el intercambio gaseoso en tallos con protección secundaria."
+                },
+                {
+                    "id": "q35",
+                    "topic": "muestras_practica",
+                    "text": "En el análisis de Pennisetum sp., ¿qué patrón general del sistema vascular debe reconocerse?",
+                    "options": [
+                        "Haces vasculares dispersos en el tejido fundamental",
+                        "Haces en un anillo continuo alrededor de una médula como patrón típico de eustela",
+                        "Xilema en placas intercaladas con floema",
+                        "Meristelas independientes delimitadas por endodermis como en el helecho estudiado"
+                    ],
+                    "answer": 0,
+                    "explain": "Pennisetum es una gramínea monocotiledónea; el patrón indicado en el material de estudio es atactostela, con haces dispersos."
+                },
+                {
+                    "id": "q36",
+                    "topic": "anatomia_tallo",
+                    "text": "¿Qué precaución interpretativa es importante al identificar tejidos en una preparación microscópica?",
+                    "options": [
+                        "Confirmar la posición, forma y organización de los tejidos y no basarse únicamente en una coloración",
+                        "Asignar siempre el mismo tipo de estela a todas las especies",
+                        "Inferir el tejido solo por el aumento utilizado",
+                        "Suponer que cualquier zona roja es floema"
+                    ],
+                    "answer": 0,
+                    "explain": "La identificación debe integrar ubicación, morfología celular, organización del tejido y reacción de tinción; la fluoroglucina-HCl destaca tejidos lignificados, no identifica por sí sola todas las estructuras."
+                }],
+            "glossary": [{
+                "term": "Estela",
+                "def": "Organización del sistema vascular del eje vegetal, incluyendo xilema, floema y tejidos asociados."
+            },
+                {
+                    "term": "Protoestela",
+                    "def": "Tipo de organización vascular sin médula parenquimática central; incluye haploestela, actinostela y plectostela."
+                },
+                {
+                    "term": "Sifonoestela",
+                    "def": "Organización vascular con médula central; comprende variantes como ectofloica, anfifloica y formas derivadas."
+                },
+                {
+                    "term": "Plectostela",
+                    "def": "Protoestela en la que el xilema está dividido en placas o bandas intercaladas con floema."
+                },
+                {
+                    "term": "Eustela",
+                    "def": "Sistema vascular constituido por haces vasculares independientes organizados en un anillo alrededor de la médula."
+                },
+                {
+                    "term": "Atactostela",
+                    "def": "Sistema vascular característico de monocotiledóneas, con haces vasculares dispersos en el parénquima fundamental."
+                },
+                {
+                    "term": "Dictioestela",
+                    "def": "Sifonoestela fragmentada en numerosas meristelas o unidades vasculares independientes, como en rizomas de helechos."
+                },
+                {
+                    "term": "Xilema",
+                    "def": "Tejido vascular que conduce principalmente agua y sales minerales y presenta elementos frecuentemente lignificados."
+                },
+                {
+                    "term": "Floema",
+                    "def": "Tejido vascular especializado en el transporte de fotoasimilados y otras sustancias orgánicas."
+                },
+                {
+                    "term": "Cambium vascular",
+                    "def": "Meristemo lateral que produce xilema secundario hacia el interior y floema secundario hacia el exterior."
+                },
+                {
+                    "term": "Xilema secundario",
+                    "def": "Tejido producido por el cambium vascular hacia el interior; constituye la principal porción de la madera."
+                },
+                {
+                    "term": "Peridermis",
+                    "def": "Sistema protector secundario que reemplaza a la epidermis en tallos con crecimiento secundario."
+                },
+                {
+                    "term": "Lenticela",
+                    "def": "Estructura de intercambio gaseoso que aparece en órganos con tejidos protectores secundarios."
+                },
+                {
+                    "term": "Nudo",
+                    "def": "Región del tallo donde se insertan hojas y pueden originarse yemas o ramas."
+                },
+                {
+                    "term": "Entrenudo",
+                    "def": "Segmento del tallo comprendido entre dos nudos."
+                },
+                {
+                    "term": "Yema apical",
+                    "def": "Región meristemática localizada en el extremo del tallo que participa en el crecimiento longitudinal."
+                },
+                {
+                    "term": "Yema axilar",
+                    "def": "Yema localizada en la axila de una hoja, capaz de originar una rama."
+                },
+                {
+                    "term": "Zarcillo",
+                    "def": "Estructura especializada que permite a ciertas plantas trepar y sujetarse a soportes."
+                },
+                {
+                    "term": "Rizoma",
+                    "def": "Tallo generalmente subterráneo modificado, con función frecuente de almacenamiento y propagación vegetativa."
+                },
+                {
+                    "term": "Tubérculo",
+                    "def": "Tallo modificado de almacenamiento que puede presentar yemas; ejemplo: papa."
+                },
+                {
+                    "term": "Bulbo tunicado",
+                    "def": "Estructura subterránea de almacenamiento con un tallo corto y hojas modificadas carnosas; ejemplo: cebolla."
+                },
+                {
+                    "term": "Fluoroglucina-HCl",
+                    "def": "Reactivo histoquímico utilizado para evidenciar tejidos lignificados mediante una coloración rojiza o magenta."
+                },
+                {
+                    "term": "Haploestela",
+                    "def": "Protoestela sencilla con xilema central macizo rodeado por floema."
+                },
+                {
+                    "term": "Actinostela",
+                    "def": "Tipo de protoestela en la que el xilema presenta una disposición radial o estrellada."
+                },
+                {
+                    "term": "Ectofloica",
+                    "def": "Variante de sifonoestela con floema localizado hacia el exterior del cilindro de xilema."
+                },
+                {
+                    "term": "Anfifloica",
+                    "def": "Organización sifonostélica en la que el xilema está acompañado por floema tanto externo como interno."
+                },
+                {
+                    "term": "Meristela",
+                    "def": "Unidad vascular individual que integra el sistema vascular fragmentado de ciertos helechos."
+                },
+                {
+                    "term": "Epidermis",
+                    "def": "Tejido protector primario externo del tallo joven, que puede presentar cutícula y estructuras como tricomas."
+                },
+                {
+                    "term": "Cutícula",
+                    "def": "Cubierta rica en sustancias lipídicas depositada sobre la epidermis; reduce la pérdida de agua."
+                },
+                {
+                    "term": "Corteza",
+                    "def": "Región de tejido fundamental situada entre la epidermis y el sistema vascular en tallos donde se diferencia claramente."
+                },
+                {
+                    "term": "Médula",
+                    "def": "Región central de tejido fundamental que puede estar presente en tallos con una organización vascular alrededor de ella."
+                },
+                {
+                    "term": "Colénquima",
+                    "def": "Tejido de sostén flexible, común en órganos jóvenes, con paredes primarias desigualmente engrosadas."
+                },
+                {
+                    "term": "Esclerénquima",
+                    "def": "Tejido de sostén generalmente rígido, con paredes secundarias engrosadas y a menudo lignificadas."
+                },
+                {
+                    "term": "Radios del xilema",
+                    "def": "Bandas radiales de células, frecuentemente parenquimáticas, que participan en el transporte lateral y almacenamiento en la madera."
+                },
+                {
+                    "term": "Conductos resiníferos",
+                    "def": "Canales secretores presentes en varias coníferas que contienen resina, relacionada con defensa y sellado de lesiones."
+                },
+                {
+                    "term": "Anillo de crecimiento",
+                    "def": "Zona de xilema secundario producida durante un periodo de crecimiento; su definición depende de la estacionalidad y la anatomía de la especie."
+                },
+                {
+                    "term": "Crecimiento primario",
+                    "def": "Crecimiento en longitud originado principalmente por meristemos apicales, que produce tejidos primarios."
+                },
+                {
+                    "term": "Crecimiento secundario",
+                    "def": "Aumento en grosor generado por meristemos laterales, especialmente el cambium vascular y el felógeno."
+                },
+                {
+                    "term": "Felógeno",
+                    "def": "Meristemo lateral que produce súber hacia el exterior y felodermis hacia el interior, formando parte de la peridermis."
+                },
+                {
+                    "term": "Súber o corcho",
+                    "def": "Tejido protector producido hacia fuera por el felógeno; sus células maduras suelen estar suberizadas."
+                },
+                {
+                    "term": "Tricoma",
+                    "def": "Apéndice epidérmico con formas y funciones diversas, como protección, secreción o modificación de la superficie."
+                },
+                {
+                    "term": "Cavidad medular",
+                    "def": "Espacio central que puede formarse en algunos tallos, como resultado de la organización o del desarrollo del tejido fundamental."
+                },
+                {
+                    "term": "Madera",
+                    "def": "Nombre común del xilema secundario acumulado en tallos leñosos; aporta soporte y participa en la conducción de agua."
+                },
+                {
+                    "term": "Fotoasimilados",
+                    "def": "Compuestos orgánicos producidos por fotosíntesis y transportados principalmente por el floema hacia órganos consumidores o de reserva."
+                },
+                {
+                    "term": "Propagación vegetativa",
+                    "def": "Formación de nuevos individuos a partir de órganos vegetativos, como rizomas, tubérculos o bulbos."
+                },
+                {
+                    "term": "Zarcillo caulinar",
+                    "def": "Estructura de origen caulinar que se enrolla sobre un soporte y ayuda a la planta a trepar; la procedencia exacta depende de la especie."
+                }],
+            "flashcards": [{
+                "id": "f1",
+                "front": "¿Qué es una estela?",
+                "back": "Organización del sistema vascular del tallo: xilema, floema y tejidos asociados."
+            },
+                {
+                    "id": "f2",
+                    "front": "Plectostela",
+                    "back": "Protoestela con xilema fragmentado en placas intercaladas con floema. Ejemplo: Lycopodium sp."
+                },
+                {
+                    "id": "f3",
+                    "front": "Dictioestela",
+                    "back": "Sifonoestela fragmentada en meristelas independientes. Ejemplo: rizoma de Pteridium aquilinum."
+                },
+                {
+                    "id": "f4",
+                    "front": "Eustela",
+                    "back": "Haces vasculares independientes organizados en anillo alrededor de una médula. Presente en tallos de eudicotiledóneas y gimnospermas."
+                },
+                {
+                    "id": "f5",
+                    "front": "Atactostela",
+                    "back": "Haces vasculares dispersos en el parénquima fundamental. Característica del tallo de monocotiledóneas como Pennisetum sp."
+                },
+                {
+                    "id": "f6",
+                    "front": "Fluoroglucina + HCl",
+                    "back": "Tinción para tejidos lignificados; la lignina produce una coloración rojiza o magenta."
+                },
+                {
+                    "id": "f7",
+                    "front": "Xilema y floema",
+                    "back": "Xilema: conducción de agua y sales, generalmente hacia el interior. Floema: transporte de fotoasimilados, hacia el exterior."
+                },
+                {
+                    "id": "f8",
+                    "front": "Crecimiento secundario",
+                    "back": "Aumento en grosor producido principalmente por actividad del cambium vascular y formación de xilema y floema secundarios."
+                },
+                {
+                    "id": "f9",
+                    "front": "Nudo y entrenudo",
+                    "back": "Nudo: inserción de hojas y origen de yemas. Entrenudo: segmento entre dos nudos."
+                },
+                {
+                    "id": "f10",
+                    "front": "Tallos modificados",
+                    "back": "Rizoma, tubérculo y bulbo son modificaciones del tallo relacionadas con almacenamiento y/o propagación vegetativa."
+                },
+                {
+                    "id": "f11",
+                    "front": "¿Qué caracteriza a la haploestela?",
+                    "back": "Protoestela con xilema central macizo rodeado por floema."
+                },
+                {
+                    "id": "f12",
+                    "front": "¿Qué caracteriza a la actinostela?",
+                    "back": "Protoestela con xilema de contorno radial o estrellado."
+                },
+                {
+                    "id": "f13",
+                    "front": "¿Qué se observa en una plectostela?",
+                    "back": "Placas de xilema alternan con regiones de floema; es un patrón asociado a Lycopodium en el material de práctica."
+                },
+                {
+                    "id": "f14",
+                    "front": "¿Qué es una meristela?",
+                    "back": "Unidad vascular individual de un sistema fragmentado, como la dictioestela de algunos helechos."
+                },
+                {
+                    "id": "f15",
+                    "front": "¿Qué indica la eustela?",
+                    "back": "Haces vasculares discretos organizados en un anillo alrededor de la médula."
+                },
+                {
+                    "id": "f16",
+                    "front": "¿Qué indica la atactostela?",
+                    "back": "Haces vasculares dispersos en el tejido fundamental, patrón característico de muchas monocotiledóneas."
+                },
+                {
+                    "id": "f17",
+                    "front": "¿Qué produce el cambium vascular?",
+                    "back": "Xilema secundario hacia el interior y floema secundario hacia el exterior."
+                },
+                {
+                    "id": "f18",
+                    "front": "¿Qué produce el felógeno?",
+                    "back": "Súber hacia fuera y felodermis hacia dentro; ambos integran la peridermis."
+                },
+                {
+                    "id": "f19",
+                    "front": "¿Qué función tienen las lenticelas?",
+                    "back": "Facilitan el intercambio gaseoso a través de la peridermis."
+                },
+                {
+                    "id": "f20",
+                    "front": "¿Qué función cumple el xilema secundario?",
+                    "back": "Conduce agua y aporta soporte; constituye la mayor parte de la madera de muchos tallos leñosos."
+                },
+                {
+                    "id": "f21",
+                    "front": "¿Qué debe registrarse en Equisetum?",
+                    "back": "Epidermis, corteza, parénquima, tejidos mecánicos, xilema, floema y organización de la estela."
+                },
+                {
+                    "id": "f22",
+                    "front": "¿Qué se busca en el tallo viejo de Retrophyllum?",
+                    "back": "Xilema secundario, radios, anillos de crecimiento si existen, conductos resiníferos, floema, corteza y epidermis/peridermis según la región."
+                },
+                {
+                    "id": "f23",
+                    "front": "¿Qué identifica a un tubérculo caulinar?",
+                    "back": "Engrosamiento de reserva con yemas u ojos, como la papa (Solanum tuberosum)."
+                },
+                {
+                    "id": "f24",
+                    "front": "¿Cómo reconocer un rizoma?",
+                    "back": "Tallo generalmente subterráneo con nudos, yemas y cicatrices foliares; puede almacenar reservas y propagar la planta."
+                },
+                {
+                    "id": "f25",
+                    "front": "¿Qué se compara entre tallo joven y adulto?",
+                    "back": "Desarrollo de tejidos secundarios, proporción de xilema, protección externa y presencia de radios o anillos cuando sean visibles."
+                },
+                {
+                    "id": "f26",
+                    "front": "¿Cómo se diferencia tallo y raíz en morfología externa?",
+                    "back": "El tallo suele presentar nudos, entrenudos y yemas; la raíz suele presentar cofia y zona de pelos absorbentes."
+                },
+                {
+                    "id": "f27",
+                    "front": "¿Qué significa tinción rojiza con fluoroglucina-HCl?",
+                    "back": "Sugiere paredes lignificadas; se interpreta junto con la ubicación y estructura del tejido, no de forma aislada."
+                },
+                {
+                    "id": "f28",
+                    "front": "¿Qué importancia económica tiene la madera?",
+                    "back": "Se utiliza en construcción, muebles, papel y otros productos; sus propiedades dependen de la anatomía, densidad y composición del xilema secundario."
+                }],
+            "structures": [{
+                "id": "s1",
+                "title": "Identifica el tipo de estela mostrado en la figura",
+                "img": "https://i.imgur.com/k7EFyr5.png",
+                "options": [
+                    "Figura 1. [https://i.imgur.com/k7EFyr5.png]",
+                    "Figura 2. [https://i.imgur.com/Ve9N0rL.png]",
+                    "Figura 3. [https://i.imgur.com/qr6Z3EI.png]",
+                    "Figura 4. [https://i.imgur.com/HLb3Mig.png]"
+                ],
+                "answer": 0,
+                "explain": "Consulta la Figura 1 para diferenciar las categorías de organización estelar mediante la distribución de xilema, floema y médula."
+            },
+                {
+                    "id": "s2",
+                    "title": "Identifica la preparación microscópica correspondiente",
+                    "img": "https://i.imgur.com/Ve9N0rL.png",
+                    "options": [
+                        "Figura 1. [https://i.imgur.com/k7EFyr5.png]",
+                        "Figura 2. [https://i.imgur.com/Ve9N0rL.png]",
+                        "Figura 5. [https://i.imgur.com/e0JeocT.png]",
+                        "Figura 7. [https://i.imgur.com/HcLhpos.png]"
+                    ],
+                    "answer": 1,
+                    "explain": "Consulta la Figura 2 para reconocer la organización anatómica de la preparación."
+                },
+                {
+                    "id": "s3",
+                    "title": "Identifica la preparación microscópica correspondiente",
+                    "img": "https://i.imgur.com/qr6Z3EI.png",
+                    "options": [
+                        "Figura 3. [https://i.imgur.com/qr6Z3EI.png]",
+                        "Figura 2. [https://i.imgur.com/Ve9N0rL.png]",
+                        "Figura 4. [https://i.imgur.com/HLb3Mig.png]",
+                        "Figura 6. [https://i.imgur.com/r7RBjgN.png]"
+                    ],
+                    "answer": 0,
+                    "explain": "Consulta la Figura 3 para analizar la organización anatómica de la preparación."
+                },
+                {
+                    "id": "s4",
+                    "title": "Identifica la preparación microscópica correspondiente",
+                    "img": "https://i.imgur.com/HLb3Mig.png",
+                    "options": [
+                        "Figura 5. [https://i.imgur.com/e0JeocT.png]",
+                        "Figura 4. [https://i.imgur.com/HLb3Mig.png]",
+                        "Figura 6. [https://i.imgur.com/r7RBjgN.png]",
+                        "Figura 7. [https://i.imgur.com/HcLhpos.png]"
+                    ],
+                    "answer": 1,
+                    "explain": "Consulta la Figura 4 para analizar la organización anatómica de la preparación."
+                },
+                {
+                    "id": "s5",
+                    "title": "Identifica la preparación microscópica correspondiente",
+                    "img": "https://i.imgur.com/e0JeocT.png",
+                    "options": [
+                        "Figura 7. [https://i.imgur.com/HcLhpos.png]",
+                        "Figura 4. [https://i.imgur.com/HLb3Mig.png]",
+                        "Figura 5. [https://i.imgur.com/e0JeocT.png]",
+                        "Figura 2. [https://i.imgur.com/Ve9N0rL.png]"
+                    ],
+                    "answer": 2,
+                    "explain": "Consulta la Figura 5 para analizar la organización anatómica de la preparación."
+                },
+                {
+                    "id": "s6",
+                    "title": "Identifica la preparación microscópica correspondiente",
+                    "img": "https://i.imgur.com/r7RBjgN.png",
+                    "options": [
+                        "Figura 6. [https://i.imgur.com/r7RBjgN.png]",
+                        "Figura 3. [https://i.imgur.com/qr6Z3EI.png]",
+                        "Figura 5. [https://i.imgur.com/e0JeocT.png]",
+                        "Figura 7. [https://i.imgur.com/HcLhpos.png]"
+                    ],
+                    "answer": 0,
+                    "explain": "Consulta la Figura 6 para analizar la organización anatómica de la preparación."
+                },
+                {
+                    "id": "s7",
+                    "title": "Identifica la preparación microscópica correspondiente",
+                    "img": "https://i.imgur.com/HcLhpos.png",
+                    "options": [
+                        "Figura 2. [https://i.imgur.com/Ve9N0rL.png]",
+                        "Figura 7. [https://i.imgur.com/HcLhpos.png]",
+                        "Figura 4. [https://i.imgur.com/HLb3Mig.png]",
+                        "Figura 6. [https://i.imgur.com/r7RBjgN.png]"
+                    ],
+                    "answer": 1,
+                    "explain": "Consulta la Figura 7 para analizar la organización anatómica de la preparación."
+                }],
+            "cases": [{
+                "id": "c1",
+                "text": "Durante una observación microscópica se encuentra un tallo cuyo cilindro vascular central presenta placas de xilema separadas y paralelas, intercaladas con floema. ¿Qué organización debe reconocerse?",
+                "options": [
+                    "Eustela",
+                    "Atactostela",
+                    "Plectostela",
+                    "Dictioestela"
+                ],
+                "answer": 2,
+                "feedback": "La disposición en placas de xilema intercaladas con floema corresponde a una plectostela, una forma de protoestela."
+            },
+                {
+                    "id": "c2",
+                    "text": "En un corte transversal de un rizoma se observan múltiples unidades vasculares independientes, cada una delimitada y rodeada por tejido fundamental. ¿Qué interpretación anatómica corresponde?",
+                    "options": [
+                        "Dictioestela",
+                        "Haploestela",
+                        "Atactostela",
+                        "Actinostela"
+                    ],
+                    "answer": 0,
+                    "feedback": "La fragmentación del sistema vascular en múltiples meristelas independientes corresponde a una dictioestela."
+                },
+                {
+                    "id": "c3",
+                    "text": "Una preparación de tallo presenta haces vasculares discretos formando un anillo alrededor de una médula central. ¿Qué característica adicional sería coherente con esta organización?",
+                    "options": [
+                        "Haces vasculares completamente dispersos en el parénquima fundamental",
+                        "Ausencia de médula central",
+                        "Organización en eustela",
+                        "Xilema dividido en placas paralelas"
+                    ],
+                    "answer": 2,
+                    "feedback": "La eustela se caracteriza por haces vasculares independientes organizados en un anillo alrededor de una médula."
+                },
+                {
+                    "id": "c4",
+                    "text": "Se realiza un corte transversal de Pennisetum sp. y se observan haces vasculares distribuidos irregularmente dentro del tejido fundamental. ¿Qué organización debe identificarse?",
+                    "options": [
+                        "Plectostela",
+                        "Atactostela",
+                        "Eustela",
+                        "Dictioestela"
+                    ],
+                    "answer": 1,
+                    "feedback": "La distribución dispersa de haces vasculares dentro del parénquima fundamental es característica de la atactostela de monocotiledóneas."
+                },
+                {
+                    "id": "c5",
+                    "text": "En un corte teñido con fluoroglucina-HCl aparecen estructuras vasculares con una coloración rojiza intensa. ¿Qué componente explica principalmente la reacción?",
+                    "options": [
+                        "Lignina de las paredes celulares",
+                        "ADN nuclear",
+                        "Clorofila",
+                        "Almidón soluble"
+                    ],
+                    "answer": 0,
+                    "feedback": "La fluoroglucina-HCl evidencia principalmente tejidos lignificados, por lo que xilema y otros tejidos con lignina pueden adquirir tonalidades rojizas o magenta."
+                },
+                {
+                    "id": "c6",
+                    "text": "Al comparar un tallo joven y uno adulto de Retrophyllum rospigliosii, la muestra adulta presenta una mayor proporción de tejido vascular secundario. ¿Qué proceso explica el cambio?",
+                    "options": [
+                        "Actividad del cambium vascular",
+                        "Desaparición del xilema",
+                        "Formación de una nueva epidermis primaria",
+                        "Conversión del floema en médula"
+                    ],
+                    "answer": 0,
+                    "feedback": "El cambium vascular produce xilema secundario hacia el interior y floema secundario hacia el exterior, aumentando el diámetro del tallo."
+                },
+                {
+                    "id": "c7",
+                    "text": "En Senna pistaciifolia adulta se observa una cubierta secundaria en lugar de la epidermis primaria. ¿Qué estructura corresponde?",
+                    "options": [
+                        "Médula",
+                        "Peridermis",
+                        "Endodermis",
+                        "Floema primario"
+                    ],
+                    "answer": 1,
+                    "feedback": "La peridermis es el sistema protector secundario asociado al crecimiento en grosor de los tallos leñosos."
+                },
+                {
+                    "id": "c8",
+                    "text": "Durante la observación morfológica se encuentra una estructura que nace en la axila de una hoja y puede desarrollar una rama. ¿Qué estructura es?",
+                    "options": [
+                        "Yema axilar",
+                        "Entrenudo",
+                        "Lenticela",
+                        "Médula"
+                    ],
+                    "answer": 0,
+                    "feedback": "La yema axilar se localiza en la axila foliar y contiene tejido meristemático capaz de originar una rama."
+                },
+                {
+                    "id": "c9",
+                    "text": "Una muestra presenta una estructura subterránea engrosada con función de almacenamiento y yemas capaces de originar nuevos brotes. ¿Qué modificación corresponde mejor?",
+                    "options": [
+                        "Tubérculo",
+                        "Tricoma",
+                        "Lenticela",
+                        "Colénquima"
+                    ],
+                    "answer": 0,
+                    "feedback": "El tubérculo es un tallo modificado especializado en almacenamiento y presenta yemas, como los ojos de la papa."
+                },
+                {
+                    "id": "c10",
+                    "text": "Una muestra de Cucurbita pepo presenta estructuras filamentosas que se enrollan alrededor de un soporte. ¿Qué función se relaciona directamente con ellas?",
+                    "options": [
+                        "Absorción de agua",
+                        "Conducción de fotoasimilados",
+                        "Sujeción y crecimiento trepador",
+                        "Producción de xilema secundario"
+                    ],
+                    "answer": 2,
+                    "feedback": "Los zarcillos permiten que la planta se sujete a soportes y mantenga un crecimiento trepador."
+                },
+                {
+                    "id": "c11",
+                    "text": "En un corte de Equisetum se reconocen epidermis, corteza y tejido fundamental; a mayor aumento se localizan xilema y floema. ¿Qué debe añadirse al registro anatómico para completar la guía?",
+                    "options": [
+                        "Organización del sistema vascular, tipo de estela y presencia o ausencia de crecimiento secundario",
+                        "Únicamente el color externo del tallo",
+                        "Solo la altura de la planta",
+                        "El número de pétalos"
+                    ],
+                    "answer": 0,
+                    "feedback": "La guía pide determinar la organización vascular, la estela, los tejidos mecánicos y si existe sistema vascular secundario."
+                },
+                {
+                    "id": "c12",
+                    "text": "En un tallo de Retrophyllum rospigliosii se observan radios que atraviesan radialmente el xilema. ¿Qué interpretación funcional es adecuada?",
+                    "options": [
+                        "Pueden participar en transporte lateral y almacenamiento",
+                        "Son yemas que originan ramas",
+                        "Constituyen la epidermis primaria",
+                        "Son exclusivamente conductos de floema"
+                    ],
+                    "answer": 0,
+                    "feedback": "Los radios del xilema suelen facilitar el movimiento radial de sustancias y el almacenamiento dentro del tejido leñoso."
+                },
+                {
+                    "id": "c13",
+                    "text": "En una eudicotiledónea leñosa el diámetro del tallo aumenta y se forma abundante tejido hacia el interior del cambium. ¿Qué tejido se está acumulando?",
+                    "options": [
+                        "Xilema secundario",
+                        "Epidermis primaria",
+                        "Corteza exclusivamente primaria",
+                        "Floema hacia el interior"
+                    ],
+                    "answer": 0,
+                    "feedback": "El cambium vascular produce xilema secundario hacia el interior; su acumulación contribuye al incremento del diámetro y forma la madera."
+                },
+                {
+                    "id": "c14",
+                    "text": "Al observar un tallo de cebolla, se identifica una base corta y hojas carnosas superpuestas. ¿Cómo se interpreta esta modificación?",
+                    "options": [
+                        "Bulbo tunicado de almacenamiento",
+                        "Tubérculo con ojos",
+                        "Rizoma con entrenudos alargados",
+                        "Raíz con cofia"
+                    ],
+                    "answer": 0,
+                    "feedback": "Allium cepa presenta un bulbo tunicado con tallo corto y hojas modificadas carnosas que almacenan reservas."
+                },
+                {
+                    "id": "c15",
+                    "text": "Un órgano subterráneo de Zingiber officinale presenta yemas y nudos y crece horizontalmente. ¿Cuál es la identificación más probable?",
+                    "options": [
+                        "Rizoma",
+                        "Raíz absorbente",
+                        "Lenticela",
+                        "Médula aislada"
+                    ],
+                    "answer": 0,
+                    "feedback": "El jengibre es un ejemplo de rizoma, un tallo subterráneo que puede almacenar reservas y participar en la propagación vegetativa."
+                },
+                {
+                    "id": "c16",
+                    "text": "En una preparación, la fluoroglucina-HCl produce zonas magenta en elementos de paredes gruesas. ¿Cuál es la interpretación más rigurosa?",
+                    "options": [
+                        "La reacción apoya la presencia de lignificación, pero la identificación debe confirmarse con la anatomía y posición del tejido",
+                        "Toda zona magenta es necesariamente floema",
+                        "La tinción demuestra la presencia de almidón exclusivamente",
+                        "El color identifica por sí solo cualquier tipo de célula"
+                    ],
+                    "answer": 0,
+                    "feedback": "La reacción resalta lignina; la observación microscópica y la ubicación anatómica permiten interpretar si corresponde a xilema u otros tejidos lignificados."
+                },
+                {
+                    "id": "c17",
+                    "text": "Se comparan cortes de Impatiens balsamina y Cucurbita pepo en crecimiento primario. ¿Qué variables anatómicas deben contrastarse?",
+                    "options": [
+                        "Epidermis, corteza, médula, tejidos mecánicos, xilema, floema y organización de los haces/estela",
+                        "Solo el tamaño total de las hojas",
+                        "Únicamente el color de las flores",
+                        "Solo el número de raíces"
+                    ],
+                    "answer": 0,
+                    "feedback": "La guía solicita establecer diferencias entre los tejidos presentes y la organización del sistema vascular o estela en ambas muestras."
+                },
+                {
+                    "id": "c18",
+                    "text": "Una muestra de tallo leñoso presenta lenticelas en su superficie. ¿Qué relación funcional es la más apropiada?",
+                    "options": [
+                        "Permiten intercambio gaseoso a través de la cubierta secundaria",
+                        "Son órganos de absorción de agua del suelo",
+                        "Producen directamente el xilema secundario",
+                        "Son cicatrices de los vasos del floema"
+                    ],
+                    "answer": 0,
+                    "feedback": "Las lenticelas son zonas de la peridermis que permiten intercambio gaseoso entre tejidos internos y ambiente."
+                },
+                {
+                    "id": "c19",
+                    "text": "Al elaborar la comparación entre tallo y raíz, un estudiante identifica nudos y yemas en un órgano subterráneo. ¿Qué conclusión es más razonable?",
+                    "options": [
+                        "Puede tratarse de un tallo modificado, como un rizoma, aunque esté bajo tierra",
+                        "Todo órgano subterráneo es una raíz",
+                        "Las yemas son exclusivas de raíces",
+                        "La posición subterránea determina por sí sola que sea raíz"
+                    ],
+                    "answer": 0,
+                    "feedback": "La identificación debe basarse en rasgos estructurales, no solo en la ubicación: los rizomas son tallos subterráneos con nudos y yemas."
+                },
+                {
+                    "id": "c20",
+                    "text": "Al observar una gramínea, los haces vasculares aparecen dispersos por el tejido fundamental y no forman un anillo regular. ¿Qué patrón es coherente?",
+                    "options": [
+                        "Atactostela",
+                        "Eustela",
+                        "Plectostela",
+                        "Dictioestela"
+                    ],
+                    "answer": 0,
+                    "feedback": "La atactostela se reconoce por haces vasculares dispersos, patrón común en tallos de monocotiledóneas como Pennisetum."
+                },
+                {
+                    "id": "c21",
+                    "text": "El informe de la práctica exige relacionar el crecimiento secundario con el uso económico de la madera. ¿Qué explicación conecta mejor anatomía y uso?",
+                    "options": [
+                        "La acumulación de xilema secundario forma madera cuya estructura contribuye a conducción y soporte, y determina propiedades útiles para construcción y productos derivados",
+                        "La madera se forma principalmente por epidermis",
+                        "El floema secundario constituye por sí solo toda la madera",
+                        "La madera es una modificación de las hojas"
+                    ],
+                    "answer": 0,
+                    "feedback": "La madera corresponde principalmente al xilema secundario; sus elementos conductores, fibras, parénquima y organización radial influyen en propiedades tecnológicas."
+                },
+                {
+                    "id": "c22",
+                    "text": "Durante la identificación de una preparación de Pteridium aquilinum, se reconocen múltiples unidades vasculares delimitadas por endodermis. ¿Qué estructura general se está estudiando?",
+                    "options": [
+                        "Dictioestela con meristelas",
+                        "Atactostela típica de gramíneas",
+                        "Eustela de haces en un único anillo",
+                        "Haploestela con xilema macizo"
+                    ],
+                    "answer": 0,
+                    "feedback": "La preparación de rizoma de Pteridium aquilinum se estudia por su dictioestela, compuesta por múltiples meristelas delimitadas individualmente."
+                }],
+            "interactives": [{
+                "id": "i1",
+                "type": "dragdrop",
+                "title": "Relaciona la estela con su característica",
+                "terms": [
+                    "Plectostela",
+                    "Dictioestela",
+                    "Eustela",
+                    "Atactostela"
+                ],
+                "targets": [
+                    "Xilema dividido en placas intercaladas con floema",
+                    "Sistema vascular fragmentado en meristelas",
+                    "Haces vasculares en anillo alrededor de la médula",
+                    "Haces vasculares dispersos en parénquima fundamental"
+                ],
+                "answerMap": {
+                    "Plectostela": "Xilema dividido en placas intercaladas con floema",
+                    "Dictioestela": "Sistema vascular fragmentado en meristelas",
+                    "Eustela": "Haces vasculares en anillo alrededor de la médula",
+                    "Atactostela": "Haces vasculares dispersos en parénquima fundamental"
+                }
+            },
+                {
+                    "id": "i2",
+                    "type": "complete",
+                    "title": "Completa la secuencia de tinción",
+                    "prompt": "Corte transversal → ______ → fluoroglucina → 1 min → HCl concentrado:",
+                    "answer": "agua"
+                },
+                {
+                    "id": "i3",
+                    "type": "complete",
+                    "title": "Completa la identificación anatómica",
+                    "prompt": "El tejido vascular ubicado hacia el interior respecto al floema es el ______:",
+                    "answer": "xilema"
+                },
+                {
+                    "id": "i4",
+                    "type": "complete",
+                    "title": "Completa el proceso",
+                    "prompt": "El cambium vascular produce xilema secundario hacia el ______ y floema secundario hacia el exterior:",
+                    "answer": "interior"
+                },
+                {
+                    "id": "i5",
+                    "type": "dragdrop",
+                    "title": "Relaciona la muestra con su organización",
+                    "terms": [
+                        "Lycopodium sp.",
+                        "Pteridium aquilinum",
+                        "Retrophyllum rospigliosii",
+                        "Pennisetum sp."
+                    ],
+                    "targets": [
+                        "Plectostela",
+                        "Dictioestela",
+                        "Eustela",
+                        "Atactostela"
+                    ],
+                    "answerMap": {
+                        "Lycopodium sp.": "Plectostela",
+                        "Pteridium aquilinum": "Dictioestela",
+                        "Retrophyllum rospigliosii": "Eustela",
+                        "Pennisetum sp.": "Atactostela"
+                    }
+                },
+                {
+                    "id": "i6",
+                    "type": "complete",
+                    "title": "Completa la morfología del tallo",
+                    "prompt": "La región del tallo donde se insertan las hojas y pueden originarse yemas se denomina ______:",
+                    "answer": "nudo"
+                },
+                {
+                    "id": "i7",
+                    "type": "complete",
+                    "title": "Completa la función del cambium",
+                    "prompt": "El cambium vascular produce xilema secundario hacia el ______ y floema secundario hacia el exterior:",
+                    "answer": "interior"
+                },
+                {
+                    "id": "i8",
+                    "type": "complete",
+                    "title": "Completa la protección secundaria",
+                    "prompt": "El tejido protector secundario que reemplaza funcionalmente a la epidermis en tallos con crecimiento secundario es la ______:",
+                    "answer": "peridermis"
+                },
+                {
+                    "id": "i9",
+                    "type": "complete",
+                    "title": "Completa la función de las lenticelas",
+                    "prompt": "Las lenticelas facilitan el intercambio ______ en tallos con peridermis:",
+                    "answer": "gaseoso"
+                },
+                {
+                    "id": "i10",
+                    "type": "dragdrop",
+                    "title": "Relaciona muestra y estructura principal de observación",
+                    "terms": [
+                        "Retrophyllum rospigliosii",
+                        "Impatiens balsamina",
+                        "Pteridium aquilinum",
+                        "Allium cepa"
+                    ],
+                    "targets": [
+                        "Tallo joven y viejo; xilema secundario, radios y conductos resiníferos",
+                        "Crecimiento primario y tejidos del tallo herbáceo",
+                        "Rizoma con sistema vascular fragmentado en meristelas",
+                        "Bulbo tunicado con hojas de reserva"
+                    ],
+                    "answerMap": {
+                        "Retrophyllum rospigliosii": "Tallo joven y viejo; xilema secundario, radios y conductos resiníferos",
+                        "Impatiens balsamina": "Crecimiento primario y tejidos del tallo herbáceo",
+                        "Pteridium aquilinum": "Rizoma con sistema vascular fragmentado en meristelas",
+                        "Allium cepa": "Bulbo tunicado con hojas de reserva"
+                    }
+                },
+                {
+                    "id": "i11",
+                    "type": "dragdrop",
+                    "title": "Relaciona tejido y función",
+                    "terms": [
+                        "Xilema",
+                        "Floema",
+                        "Colénquima",
+                        "Esclerénquima"
+                    ],
+                    "targets": [
+                        "Conducción de agua y sales; soporte según sus elementos",
+                        "Transporte de fotoasimilados y otras sustancias orgánicas",
+                        "Soporte flexible en órganos jóvenes",
+                        "Soporte rígido mediante paredes secundarias frecuentemente lignificadas"
+                    ],
+                    "answerMap": {
+                        "Xilema": "Conducción de agua y sales; soporte según sus elementos",
+                        "Floema": "Transporte de fotoasimilados y otras sustancias orgánicas",
+                        "Colénquima": "Soporte flexible en órganos jóvenes",
+                        "Esclerénquima": "Soporte rígido mediante paredes secundarias frecuentemente lignificadas"
+                    }
+                },
+                {
+                    "id": "i12",
+                    "type": "complete",
+                    "title": "Completa la morfología del rizoma",
+                    "prompt": "Un rizoma es un tallo generalmente ______ que puede presentar nudos y yemas:",
+                    "answer": "subterráneo"
+                },
+                {
+                    "id": "i13",
+                    "type": "complete",
+                    "title": "Completa la identificación del tubérculo",
+                    "prompt": "La papa, Solanum tuberosum, forma un ______ caulinar de reserva con yemas u ojos:",
+                    "answer": "tubérculo"
+                },
+                {
+                    "id": "i14",
+                    "type": "complete",
+                    "title": "Completa la interpretación de la tinción",
+                    "prompt": "La fluoroglucina-HCl evidencia principalmente paredes con ______:",
+                    "answer": "lignina"
+                },
+                {
+                    "id": "i15",
+                    "type": "dragdrop",
+                    "title": "Relaciona estructura externa y función",
+                    "terms": [
+                        "Nudo",
+                        "Entrenudo",
+                        "Yema apical",
+                        "Yema axilar",
+                        "Lenticela"
+                    ],
+                    "targets": [
+                        "Región donde se insertan hojas y pueden originarse ramas",
+                        "Segmento comprendido entre dos nudos",
+                        "Meristemo del extremo que permite crecimiento longitudinal",
+                        "Yema ubicada en la axila foliar, potencial origen de una rama",
+                        "Zona de intercambio gaseoso en la peridermis"
+                    ],
+                    "answerMap": {
+                        "Nudo": "Región donde se insertan hojas y pueden originarse ramas",
+                        "Entrenudo": "Segmento comprendido entre dos nudos",
+                        "Yema apical": "Meristemo del extremo que permite crecimiento longitudinal",
+                        "Yema axilar": "Yema ubicada en la axila foliar, potencial origen de una rama",
+                        "Lenticela": "Zona de intercambio gaseoso en la peridermis"
+                    }
+                },
+                {
+                    "id": "i16",
+                    "type": "complete",
+                    "title": "Completa la comparación anatómica",
+                    "prompt": "En una eustela, los haces vasculares se disponen en un ______ alrededor de la médula:",
+                    "answer": "anillo"
+                }],
+            "maps": {
+                "estelas": "Tipos de estela\n├─ Protoestelas\n│ ├─ Sin médula parenquimática central\n│ ├─ Haploestela\n│ │ └─ Xilema macizo rodeado por floema\n│ ├─ Actinostela\n│ │ └─ Xilema estrellado\n│ └─ Plectostela\n│ ├─ Xilema fragmentado en placas\n│ └─ Placas intercaladas con floema\n└─ Sifonoestelas\n ├─ Con médula central\n ├─ Ectofloica\n │ └─ Floema externo\n ├─ Anfifloica\n │ └─ Floema interno y externo\n ├─ Dictioestela\n │ └─ Fragmentada en meristelas\n ├─ Eustela\n │ └─ Haces vasculares en anillo\n └─ Atactostela\n └─ Haces vasculares dispersos\n\nClaves de identificación\n├─ Sin médula central → protoestelas\n│ ├─ Xilema macizo → haploestela\n│ ├─ Xilema estrellado → actinostela\n│ └─ Xilema en placas alternantes con floema → plectostela\n└─ Con médula o sistema más complejo\n  ├─ Haces en anillo → eustela\n  ├─ Haces dispersos → atactostela\n  └─ Sistema dividido en meristelas → dictioestela",
+                "anatomia_tallo": "Anatomía del tallo\n├─ Capas y tejidos\n│ ├─ Epidermis\n│ ├─ Cutícula\n│ ├─ Corteza parenquimática\n│ ├─ Colénquima\n│ ├─ Esclerénquima\n│ ├─ Endodermis\n│ ├─ Haces vasculares\n│ │ ├─ Xilema → interior\n│ │ └─ Floema → exterior\n│ └─ Médula/parénquima fundamental\n├─ Tinción\n│ ├─ Corte transversal\n│ ├─ Agua\n│ ├─ Fluoroglucina\n│ ├─ 1 min\n│ └─ HCl concentrado\n└─ Identificación\n ├─ Lycopodium sp. → Plectostela\n ├─ Pteridium aquilinum → Dictioestela\n ├─ Retrophyllum rospigliosii → Eustela\n ├─ Senna pistaciifolia → Eustela\n ├─ Impatiens balsamina → Eustela\n └─ Pennisetum sp. → Atactostela\n\nFunciones y criterios\n├─ Epidermis/cutícula → protección primaria y reducción de pérdida de agua\n├─ Colénquima → soporte flexible\n├─ Esclerénquima → soporte rígido, a menudo lignificado\n├─ Xilema → agua y sales; paredes frecuentemente lignificadas\n├─ Floema → fotoasimilados y otras sustancias orgánicas\n└─ Fluoroglucina-HCl → evidencia lignificación; interpretar junto con posición y morfología",
+                "morfologia_tallo": "Morfología y modificaciones del tallo\n├─ Partes externas\n│ ├─ Nudos\n│ ├─ Entrenudos\n│ ├─ Yema apical\n│ ├─ Yemas axilares\n│ └─ Lenticelas\n├─ Muestras\n│ ├─ Senna pistaciifolia\n│ ├─ Retrophyllum rospigliosii\n│ └─ Cucurbita pepo\n│ └─ Zarcillos\n└─ Tallos modificados\n ├─ Rizoma\n │ ├─ Iris\n │ └─ Zingiber officinale\n ├─ Tubérculo\n │ └─ Solanum tuberosum\n ├─ Bulbo tunicado\n │ └─ Allium cepa\n └─ Rizoma de helecho\n └─ Pteridium\n\nCómo distinguir modificaciones\n├─ Rizoma → tallo subterráneo con nudos/yemas; Iris y Zingiber officinale\n├─ Tubérculo → tallo engrosado con ojos; Solanum tuberosum\n├─ Bulbo tunicado → tallo corto y hojas carnosas; Allium cepa\n└─ Zarcillo → sujeción a soportes; Cucurbita pepo",
+                "crecimiento_secundario": "Crecimiento secundario\n├─ Cambium vascular\n│ ├─ Xilema secundario → interior\n│ └─ Floema secundario → exterior\n├─ Protección secundaria\n│ └─ Peridermis reemplaza epidermis\n├─ Gimnosperma\n│ └─ Retrophyllum rospigliosii\n│ ├─ Tallo joven\n│ ├─ Tallo viejo\n│ ├─ Xilema primario/secundario\n│ ├─ Floema\n│ ├─ Radios del xilema\n│ ├─ Canales resiníferos\n│ └─ Anillos de crecimiento\n├─ Eudicotiledónea leñosa\n│ └─ Senna pistaciifolia\n│ ├─ Peridermis\n│ ├─ Cambium\n│ ├─ Floema\n│ ├─ Xilema secundario\n│ ├─ Xilema primario\n│ └─ Médula\n└─ Importancia\n ├─ Aumento del diámetro\n ├─ Formación de madera\n ├─ Conducción\n └─ Soporte mecánico\n\nSecuencia funcional\n├─ Cambium vascular se activa\n├─ Xilema secundario se deposita hacia el interior\n├─ Floema secundario se deposita hacia el exterior\n├─ El aumento de tejidos secundarios incrementa el diámetro\n├─ Felógeno forma peridermis; aparecen lenticelas en zonas de intercambio\n└─ Xilema secundario acumulado constituye la madera, útil para soporte, conducción y productos económicos",
+                "comparacion_tallo_raiz": "Comparación entre tallo y raíz\n├─ Tallo\n│ ├─ Nudos y entrenudos\n│ ├─ Yemas apicales y axilares\n│ ├─ Puede presentar hojas, ramas y modificaciones caulinares\n│ └─ Xilema y floema organizados según el grupo y la especie\n└─ Raíz\n  ├─ Cofia en el ápice radical\n  ├─ Zona de pelos absorbentes en regiones jóvenes\n  ├─ No presenta nudos y entrenudos típicos del tallo\n  └─ Absorción, anclaje y conducción"
+            }
+        };
+
+        /* --------------------------
+Utilidades y renderizado
+-------------------------- */
+        function ensureDbShape() {
+            DB.quizTopics = Array.isArray(DB.quizTopics) ? DB.quizTopics: [];
+            DB.questions = Array.isArray(DB.questions) ? DB.questions: [];
+            DB.glossary = Array.isArray(DB.glossary) ? DB.glossary: [];
+            DB.flashcards = Array.isArray(DB.flashcards) ? DB.flashcards: [];
+            DB.structures = Array.isArray(DB.structures) ? DB.structures: [];
+            DB.cases = Array.isArray(DB.cases) ? DB.cases: [];
+            DB.interactives = Array.isArray(DB.interactives) ? DB.interactives: [];
+            DB.maps = DB.maps && typeof DB.maps === 'object' ? DB.maps: {};
+        }
+
+        function escapeHtml(s) {
+            if (!s) return ''; return String(s).replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;');
+        }
+
+        /* render glossary */
+        function renderGloss() {
+            const list = document.getElementById('glossList');
+            list.innerHTML = '';
+
+            const glossary = Array.isArray(DB.glossary) ? DB.glossary: [];
+            const query = normalizeText(document.getElementById('glossSearch').value || '');
+
+            glossary
+            .filter(item => {
+                const term = normalizeText(item.term);
+                const def = normalizeText(item.def);
+                return !query || term.includes(query) || def.includes(query);
+            })
+            .forEach((g, idx) => {
+                const itemId = g.id || `gloss-${idx}`;
+
+                const div = document.createElement('div');
+                div.className = 'relative p-2 border-b';
+
+                div.innerHTML = `
+                <strong>${escapeHtml(g.term)}</strong>
+                <p class="text-xs text-gray-700 pr-14">${escapeHtml(g.def)}</p>
+
+                <button data-i="${idx}" class="edit-gloss text-blue-600 text-xs mt-1">
+                Editar
+                </button>
+
+                <div class="absolute bottom-1 right-1 flex gap-1">
+                <button data-section="gloss" data-id="${itemId}" data-correct="true" class="score-btn text-xs">✅</button>
+                <button data-section="gloss" data-id="${itemId}" data-correct="false" class="score-btn text-xs">❌</button>
+                </div>
+                `;
+
+                list.appendChild(div);
+            });
+
+            list.querySelectorAll('.edit-gloss').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const i = parseInt(btn.dataset.i);
+                    document.getElementById('termInput').value = DB.glossary[i].term || '';
+                    document.getElementById('defInput').value = DB.glossary[i].def || '';
+                    DB.glossary.splice(i, 1);
+                    renderGloss();
+                    saveToLocal();
+                    updateDashboard();
+                });
+            });
+
+            list.querySelectorAll('.score-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    markItem(
+                        btn.dataset.section,
+                        btn.dataset.id,
+                        btn.dataset.correct === 'true'
+                    );
+                });
+            });
+
+            document.getElementById('glossJSON').value = JSON.stringify(glossary, null, 2);
+        }
+        document.getElementById('glossSearch').addEventListener('input', renderGloss);
+
+        /* render flashcards */
+        function renderFlashcards() {
+            const cont = document.getElementById('flashContainer');
+            cont.innerHTML = '';
+
+            const flashcards = Array.isArray(DB.flashcards) ? DB.flashcards: [];
+
+            flashcards.forEach((f, i) => {
+                const itemId = f.id || `flash-${i}`;
+
+                const card = document.createElement('div');
+                card.className = 'card';
+                card.style.width = '240px';
+
+                card.innerHTML = `
+                <div class="card-inner" data-index="${i}">
+                <div class="card-front">
+                ${escapeHtml(f.front)}
+                </div>
+
+                <div class="card-back relative">
+                <span class="pr-14">${escapeHtml(f.back)}</span>
+
+                <div class="absolute bottom-1 right-1 flex gap-1">
+                <button data-section="flash" data-id="${itemId}" data-correct="true" class="score-btn text-xs">✅</button>
+                <button data-section="flash" data-id="${itemId}" data-correct="false" class="score-btn text-xs">❌</button>
+                </div>
+                </div>
+                </div>
+                `;
+
+                card.querySelector('.card-inner').addEventListener('click', e => {
+                    const inner = e.currentTarget;
+                    inner.style.transform = inner.style.transform ? '': 'rotateY(180deg)';
+                });
+
+                card.querySelectorAll('.score-btn').forEach(btn => {
+                    btn.addEventListener('click', e => {
+                        e.stopPropagation();
+
+                        markItem(
+                            btn.dataset.section,
+                            btn.dataset.id,
+                            btn.dataset.correct === 'true'
+                        );
+                    });
+                });
+
+                cont.appendChild(card);
+            });
+
+            document.getElementById('flashJSON').value = JSON.stringify(flashcards, null, 2);
+        }
+
+        /* render structures */
+        function renderStructures() {
+            const area = document.getElementById('structuresArea'); area.innerHTML = '';
+            const structures = Array.isArray(DB.structures) ? DB.structures: [];
+            structures.forEach((s, idx)=> {
+                const options = Array.isArray(s.options) ? s.options: [];
+                const wrap = document.createElement('div'); wrap.className = 'p-3 border rounded';
+                wrap.innerHTML = `<div><h4 class="font-semibold">${idx+1}. ${escapeHtml(s.title)}</h4><div class="text-sm mt-1">Imagen: <a class="link-img" target="_blank" href="${s.img}">${s.img}</a></div><div class="mt-2" id="opts-${idx}"></div></div>`;
+                area.appendChild(wrap);
+                const optsDiv = wrap.querySelector(`#opts-${idx}`);
+                options.forEach((o, i)=> {
+                    const radio = document.createElement('label'); radio.className = 'mr-3 block'; radio.innerHTML = `<input type="radio" name="struct_${idx}" value="${i}"> ${escapeHtml(o)}`; optsDiv.appendChild(radio);
+                });
+                const btn = document.createElement('button'); btn.className = 'mt-2 px-2 py-1 bg-amber-500 text-white rounded'; btn.textContent = 'Verificar';
+                btn.addEventListener('click', () => {
+                    const sel = wrap.querySelector(`input[name="struct_${idx}"]:checked`);
+
+                    if (!sel) {
+                        alert('Selecciona opción');
+                        return;
+                    }
+
+                    const itemId = s.id || `structure-${idx}`;
+
+                    if (parseInt(sel.value) === s.answer) {
+                        alert('✅ Correcto\n' + (s.explain || ''));
+                        markItem('structures', itemId, true);
+                    } else {
+                        alert('❌ Incorrecto\n' + (s.explain || ''));
+                        markItem('structures', itemId, false);
+                    }
+                });
+                wrap.appendChild(btn);
+            });
+            document.getElementById('structuresJSON').value = JSON.stringify(structures, null, 2);
+        }
+
+        /* render cases */
+        function renderCases() {
+            const area = document.getElementById('casesArea'); area.innerHTML = '';
+            const casesList = Array.isArray(DB.cases) ? DB.cases: [];
+            casesList.forEach((c,
+                idx)=> {
+                const options = Array.isArray(c.options) ? c.options: [];
+                const wrap = document.createElement('div'); wrap.className = 'p-3 border rounded mb-3';
+                wrap.innerHTML = `<div><h4 class="font-semibold">Caso ${idx+1}</h4><p class="mt-1">${escapeHtml(c.text)}</p><div class="mt-2" id="caseOpts${idx}"></div></div>`;
+                area.appendChild(wrap);
+                const optsDiv = wrap.querySelector(`#caseOpts${idx}`);
+                options.forEach((o, i)=> {
+                    const label = document.createElement('label'); label.className = 'block'; label.innerHTML = `<input type="radio" name="case_${idx}" value="${i}"> ${escapeHtml(o)}`; optsDiv.appendChild(label);
+                });
+                const btn = document.createElement('button'); btn.className = 'mt-2 px-2 py-1 bg-indigo-600 text-white rounded'; btn.textContent = 'Responder';
+                btn.addEventListener('click',
+                    () => {
+                        const sel = wrap.querySelector(`input[name="case_${idx}"]:checked`);
+
+                        if (!sel) {
+                            alert('Selecciona opción');
+                            return;
+                        }
+
+                        const itemId = c.id || `case-${idx}`;
+
+                        if (parseInt(sel.value) === c.answer) {
+                            alert('✅ Correcto\n' + (c.feedback || ''));
+                            markItem('cases', itemId, true);
+                        } else {
+                            alert('❌ Incorrecto\n' + (c.feedback || ''));
+                            markItem('cases', itemId, false);
+                        }
+                    });
+                wrap.appendChild(btn);
+            });
+            document.getElementById('casesJSON').value = JSON.stringify(casesList, null, 2);
+        }
+
+        /* render interactives with correct drag/drop handling */
+        function renderInteratives() {
+            const area = document.getElementById('interactiveArea'); area.innerHTML = '';
+            (Array.isArray(DB.interactives) ? DB.interactives: []).forEach((it,
+                idx)=> {
+                const block = document.createElement('div'); block.className = 'p-3 border rounded';
+                block.innerHTML = `<h4 class="font-semibold">${idx+1}. ${escapeHtml(it.title || it.id)}</h4>`;
+                if (it.type === 'dragdrop') {
+                    const terms = Array.isArray(it.terms) ? it.terms: [];
+                    const targets = Array.isArray(it.targets) ? it.targets: [];
+                    const termsDiv = document.createElement('div'); termsDiv.className = 'mt-2 flex gap-2 flex-wrap';
+                    terms.forEach((t, i)=> {
+                        const d = document.createElement('div'); d.className = 'draggable'; d.id = `term-${idx}-${i}`; d.draggable = true; d.textContent = t;
+                        d.addEventListener('dragstart', e => {
+                            e.dataTransfer.setData('text/plain', d.id); e.dataTransfer.effectAllowed = 'move';
+                        });
+                        termsDiv.appendChild(d);
+                    });
+                    const targetsDiv = document.createElement('div'); targetsDiv.className = 'mt-3 grid grid-cols-1 gap-2';
+                    targets.forEach((tg, i)=> {
+                        const dz = document.createElement('div'); dz.className = 'dropzone'; dz.id = `target-${idx}-${i}`;
+                        dz.dataset.target = tg;
+                        const label = document.createElement('span');
+                        label.className = 'dropzone-label';
+                        label.textContent = tg;
+                        dz.appendChild(label);
+                        dz.addEventListener('dragover', e => {
+                            e.preventDefault(); e.dataTransfer.dropEffect = 'move'; dz.style.backgroundColor = '#f8fafc';
+                        });
+                        dz.addEventListener('dragleave', e => {
+                            dz.style.backgroundColor = '';
+                        });
+                        dz.addEventListener('drop', e => {
+                            e.preventDefault();
+                            dz.style.backgroundColor = '';
+                            const id = e.dataTransfer.getData('text/plain');
+                            const el = document.getElementById(id);
+                            if (!el) return;
+                            // append (this move automatically removes from previous parent)
+                            dz.appendChild(el);
+                            // compute trimmed texts
+                            const childText = el.textContent.trim();
+                            const expected = normalizeText((it.answerMap && it.answerMap[childText]) ? it.answerMap[childText]: '');
+                            const zoneText = normalizeText(dz.dataset.target || label.textContent || '');
+                            if (expected && expected === zoneText) {
+                                dz.style.borderColor = '#16a34a';
+                                dz.style.backgroundColor = '#ecfdf5';
+                                dz.dataset.correct = 'true';
+                            } else {
+                                dz.style.borderColor = '#dc2626';
+                                dz.style.backgroundColor = '#fff1f2';
+                                dz.dataset.correct = 'false';
+                            }
+                            // For other zones: if empty reset; if they have children, re-evaluate them
+                            targets.forEach((ot, j)=> {
+                                const otherDz = document.getElementById(`target-${idx}-${j}`);
+                                if (!otherDz) return;
+                                if (otherDz === dz) return;
+                                // remove any duplicate of the moved element (safety)
+                                Array.from(otherDz.querySelectorAll('.draggable')).forEach(ch => {
+                                    if (ch.id === el.id) otherDz.removeChild(ch);
+                                });
+                                if (otherDz.querySelectorAll('.draggable').length === 0) {
+                                    otherDz.style.borderColor = '#94a3b8'; otherDz.style.backgroundColor = ''; delete otherDz.dataset.correct;
+                                } else {
+                                    const rem = otherDz.querySelector('.draggable');
+                                    if (rem) {
+                                        const remText = rem.textContent.trim();
+                                        const remExp = normalizeText((it.answerMap && it.answerMap[remText]) ? it.answerMap[remText]: '');
+                                        const otherLabel = otherDz.querySelector('.dropzone-label');
+                                        const otherZoneText = normalizeText(otherDz.dataset.target || (otherLabel ? otherLabel.textContent: ''));
+                                        if (remExp && remExp === otherZoneText) {
+                                            otherDz.style.borderColor = '#16a34a'; otherDz.style.backgroundColor = '#ecfdf5'; otherDz.dataset.correct = 'true';
+                                        } else {
+                                            otherDz.style.borderColor = '#dc2626'; otherDz.style.backgroundColor = '#fff1f2'; otherDz.dataset.correct = 'false';
+                                        }
+                                    }
+                                }
+                            });
+                        });
+                        targetsDiv.appendChild(dz);
+                    });
+                    block.appendChild(termsDiv);
+                    block.appendChild(targetsDiv);
+
+                    const checkBtn = document.createElement('button');
+                    checkBtn.className = 'mt-2 px-2 py-1 bg-amber-500 text-white rounded';
+                    checkBtn.textContent = 'Verificar actividad';
+
+                    checkBtn.addEventListener('click', () => {
+                        const itemId = it.id || `interactive-${idx}`;
+                        const zones = block.querySelectorAll('.dropzone');
+                        const allCorrect = Array.from(zones).length > 0 &&
+                        Array.from(zones).every(zone => zone.dataset.correct === 'true');
+
+                        if (allCorrect) {
+                            alert('✅ Actividad correcta');
+                            markItem('interactive', itemId, true);
+                        } else {
+                            alert('❌ Revisa la actividad.');
+                            markItem('interactive', itemId, false);
+                        }
+                    });
+
+                    block.appendChild(checkBtn);
+                } else if (it.type === 'complete') {
+                    const q = document.createElement('div'); q.innerHTML = `<div class="mt-2">${escapeHtml(it.prompt || '')}</div><input class="mt-2 border rounded p-1" id="fill-${idx}">`;
+                    const btn = document.createElement('button'); btn.className = 'mt-2 px-2 py-1 bg-amber-500 text-white rounded'; btn.textContent = 'Verificar';
+                    btn.addEventListener('click', () => {
+                        const user = document.getElementById(`fill-${idx}`).value.trim();
+                        const itemId = it.id || `interactive-${idx}`;
+
+                        if (normalizeText(user) === normalizeText(it.answer || '')) {
+                            alert('✅ Correcto');
+                            markItem('interactive', itemId, true);
+                        } else {
+                            alert('❌ Incorrecto.');
+                            markItem('interactive', itemId, false);
+                        }
+                    });
+                    block.appendChild(q); block.appendChild(btn);
+                }
+                area.appendChild(block);
+            });
+            document.getElementById('interJSON').value = JSON.stringify(DB.interactives, null, 2);
+        }
+
+        /* render maps */
+        function renderMaps() {
+            const disp = document.getElementById('mapsDisplay');
+            disp.innerHTML = '';
+
+            Object.entries(DB.maps || {}).forEach(([k,
+                v]) => {
+                const itemId = `map-${k}`;
+
+                const div = document.createElement('div');
+                div.className = 'relative bg-gray-50 p-3 rounded';
+
+                div.innerHTML = `
+                <h3 class="font-semibold capitalize">${escapeHtml(k)}</h3>
+                <pre class="map pr-14">${escapeHtml(v)}</pre>
+
+                <div class="absolute bottom-1 right-1 flex gap-1">
+                <button data-section="maps" data-id="${itemId}" data-correct="true" class="score-btn text-xs">✅</button>
+                <button data-section="maps" data-id="${itemId}" data-correct="false" class="score-btn text-xs">❌</button>
+                </div>
+                `;
+
+                div.querySelectorAll('.score-btn').forEach(btn => {
+                    btn.addEventListener('click', () => {
+                        markItem(
+                            btn.dataset.section,
+                            btn.dataset.id,
+                            btn.dataset.correct === 'true'
+                        );
+                    });
+                });
+
+                disp.appendChild(div);
+            });
+
+            document.getElementById('mapsJSON').value = JSON.stringify(DB.maps || {}, null, 2);
+        }
+
+        /* Save/load DB to localStorage */
+        function saveToLocal() {
+            localStorage.setItem('DB_biocel', JSON.stringify(DB));
+        }
+        function loadFromLocal() {
+            const raw = localStorage.getItem('DB_biocel');
+            if (raw) {
+                try {
+                    DB = JSON.parse(raw);
+                } catch(e) {
+                    console.error(e);
+                }
+            }
+            ensureDbShape();
+            renderAll();
+        }
+        function renderAll() {
+            ensureDbShape();
+            renderQuizTopics();
+            renderGloss();
+            renderFlashcards();
+            renderStructures();
+            renderCases();
+            renderInteratives();
+            renderMaps();
+
+            document.getElementById('questionsJSON').value = JSON.stringify(DB.questions || [], null, 2);
+            document.getElementById('quizTopicsJSON').value = JSON.stringify(DB.quizTopics || [], null, 2);
+
+            updateDashboard();
+        }
+        /* Score and dashboard */
+        const POINTS_PER_ITEM = 10;
+
+        function getProgress() {
+            return JSON.parse(localStorage.getItem('progressBySection') || '{}');
+        }
+
+        function saveProgress(progress) {
+            localStorage.setItem('progressBySection', JSON.stringify(progress));
+        }
+
+        function markItem(section, id, isCorrect) {
+            const progress = getProgress();
+
+            if (!progress[section]) {
+                progress[section] = {};
+            }
+
+            progress[section][id] = isCorrect ? 'correct': 'incorrect';
+
+            saveProgress(progress);
+            updateDashboard();
+        }
+
+        function countCorrect(progress, section) {
+            if (!progress[section]) return 0;
+
+            return Object.values(progress[section]).filter(value => value === 'correct').length;
+        }
+
+        function getSectionTotals() {
+            return {
+                quiz: Array.isArray(DB.questions) ? DB.questions.length: 0,
+                gloss: Array.isArray(DB.glossary) ? DB.glossary.length: 0,
+                flash: Array.isArray(DB.flashcards) ? DB.flashcards.length: 0,
+                structures: Array.isArray(DB.structures) ? DB.structures.length: 0,
+                cases: Array.isArray(DB.cases) ? DB.cases.length: 0,
+                interactive: Array.isArray(DB.interactives) ? DB.interactives.length: 0,
+                maps: DB.maps && typeof DB.maps === 'object' ? Object.keys(DB.maps).length: 0
+            };
+        }
+
+        function formatProgress(correct, total) {
+            const obtained = correct * POINTS_PER_ITEM;
+            const max = total * POINTS_PER_ITEM;
+            const percent = max > 0 ? Math.round((obtained / max) * 100): 0;
+
+            return {
+                obtained,
+                max,
+                percent,
+                text: `${obtained} / ${max} - ${percent}%`
+            };
+        }
+
+        function updateDashboard() {
+            const progress = getProgress();
+            const totals = getSectionTotals();
+
+            const quiz = formatProgress(countCorrect(progress, 'quiz'), totals.quiz);
+            const gloss = formatProgress(countCorrect(progress, 'gloss'), totals.gloss);
+            const flash = formatProgress(countCorrect(progress, 'flash'), totals.flash);
+            const structures = formatProgress(countCorrect(progress, 'structures'), totals.structures);
+            const cases = formatProgress(countCorrect(progress, 'cases'), totals.cases);
+            const interactive = formatProgress(countCorrect(progress, 'interactive'), totals.interactive);
+            const maps = formatProgress(countCorrect(progress, 'maps'), totals.maps);
+
+            const obtainedTotal =
+            quiz.obtained +
+            gloss.obtained +
+            flash.obtained +
+            structures.obtained +
+            cases.obtained +
+            interactive.obtained +
+            maps.obtained;
+
+            const maxTotal =
+            quiz.max +
+            gloss.max +
+            flash.max +
+            structures.max +
+            cases.max +
+            interactive.max +
+            maps.max;
+
+            const totalPercent = maxTotal > 0
+            ? Math.round((obtainedTotal / maxTotal) * 100): 0;
+
+            document.getElementById('score').textContent = obtainedTotal;
+            document.getElementById('maxScore').textContent = maxTotal;
+            document.getElementById('scorePercent').textContent = `${totalPercent}%`;
+
+            document.getElementById('progressQuiz').textContent = quiz.text;
+            document.getElementById('progressGloss').textContent = gloss.text;
+            document.getElementById('progressFlash').textContent = flash.text;
+            document.getElementById('progressStructures').textContent = structures.text;
+            document.getElementById('progressCases').textContent = cases.text;
+            document.getElementById('progressInteractive').textContent = interactive.text;
+            document.getElementById('progressMaps').textContent = maps.text;
+        }
+
+        loadFromLocal();
+
+        /* Navigation wiring */
+        const sections = document.querySelectorAll("section");
+        document.querySelectorAll(".btn").forEach(btn=> {
+            btn.classList.add("px-3", "py-1", "rounded", "bg-indigo-600", "text-white"); btn.addEventListener('click', ()=> {
+                sections.forEach(sec=>sec.classList.add('hidden-by-default')); document.getElementById(btn.dataset.target).classList.remove('hidden-by-default'); window.scrollTo({
+                    top: 0, behavior: 'smooth'
+                });
+            });
+        });
+
+        /* File import/export */
+        const fileInput = document.getElementById('fileInput');
+        document.querySelector('.btn-file').addEventListener('click', ()=> fileInput.click());
+        fileInput.addEventListener('change', handleFile, false);
+        document.getElementById('exportJSON').addEventListener('click', exportAll);
+
+        function handleFile(evt) {
+            const f = evt.target.files[0];
+            if (!f) return;
+            const reader = new FileReader();
+            reader.onload = e=> {
+                try {
+                    const obj = JSON.parse(e.target.result);
+                    // basic merge/replace: if keys present replace DB keys
+                    DB = Object.assign({}, DB, obj);
+                    ensureDbShape();
+                    renderAll();
+                    saveToLocal();
+                    alert('Contenido importado correctamente.');
+                } catch(err) {
+                    alert('Error leyendo JSON: ' + err.message);
+                }
+            };
+            reader.readAsText(f);
+        }
+        function exportAll() {
+            const dataStr = JSON.stringify(DB, null, 2);
+            const blob = new Blob([dataStr], {
+                type: "application/json"
+            });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a'); a.href = url; a.download = 'contenido_biologia_celular.json'; document.body.appendChild(a); a.click(); a.remove();
+            URL.revokeObjectURL(url);
+        }
+
+        /* CRUD simple for glosario, flashcards, etc. */
+        document.getElementById('addTerm').addEventListener('click', ()=> {
+            const t = document.getElementById('termInput').value.trim(); const d = document.getElementById('defInput').value.trim();
+            if (!t || !d) {
+                alert('Rellena término y definición'); return;
+            }
+            DB.glossary.unshift({
+                term: t, def: d
+            }); document.getElementById('termInput').value = ''; document.getElementById('defInput').value = ''; renderGloss(); saveToLocal();
+        });
+        document.getElementById('clearGloss').addEventListener('click', ()=> {
+            if (!confirm('Borrar todo el glosario?')) return; DB.glossary = []; renderGloss(); saveToLocal();
+        });
+        document.getElementById('importGloss').addEventListener('click', ()=> {
+            try {
+                const arr = JSON.parse(document.getElementById('glossJSON').value); if (Array.isArray(arr)) {
+                    DB.glossary = arr;
+                    renderGloss();
+                    saveToLocal();
+                    updateDashboard();
+                    alert('Glosario importado');
+                } else alert('Formato inválido');
+            } catch(e) {
+                alert('JSON inválido');
+            }
+        });
+        document.getElementById('exportGloss').addEventListener('click', ()=> {
+            document.getElementById('glossJSON').value = JSON.stringify(DB.glossary, null, 2);
+        });
+
+        document.getElementById('loadFlash').addEventListener('click', ()=> {
+            try {
+                const arr = JSON.parse(document.getElementById('flashJSON').value); if (Array.isArray(arr)) {
+                    DB.flashcards = arr;
+                    renderFlashcards();
+                    saveToLocal();
+                    updateDashboard();
+                    alert('Flashcards cargadas');
+                } else alert('Formato inválido');
+            } catch(e) {
+                alert('JSON inválido');
+            }
+        });
+        document.getElementById('exportFlash').addEventListener('click', ()=> {
+            document.getElementById('flashJSON').value = JSON.stringify(DB.flashcards, null, 2);
+        });
+
+        document.getElementById('loadStructures').addEventListener('click', ()=> {
+            try {
+                const arr = JSON.parse(document.getElementById('structuresJSON').value); if (Array.isArray(arr)) {
+                    DB.structures = arr;
+                    renderStructures();
+                    saveToLocal();
+                    updateDashboard();
+                    alert('Estructuras cargadas');
+                } else alert('Formato inválido');
+            } catch(e) {
+                alert('JSON inválido');
+            }
+        });
+        document.getElementById('exportStructures').addEventListener('click', ()=> {
+            document.getElementById('structuresJSON').value = JSON.stringify(DB.structures, null, 2);
+        });
+
+        document.getElementById('loadCases').addEventListener('click', ()=> {
+            try {
+                const arr = JSON.parse(document.getElementById('casesJSON').value); if (Array.isArray(arr)) {
+                    DB.cases = arr;
+                    renderCases();
+                    saveToLocal();
+                    updateDashboard();
+                    alert('Casos cargados');
+                } else alert('Formato inválido');
+            } catch(e) {
+                alert('JSON inválido');
+            }
+        });
+        document.getElementById('exportCases').addEventListener('click', ()=> {
+            document.getElementById('casesJSON').value = JSON.stringify(DB.cases, null, 2);
+        });
+
+        document.getElementById('loadInter').addEventListener('click', ()=> {
+            try {
+                const arr = JSON.parse(document.getElementById('interJSON').value); if (Array.isArray(arr)) {
+                    DB.interactives = arr;
+                    renderInteratives();
+                    saveToLocal();
+                    updateDashboard();
+                    alert('Interactivos cargados');
+                } else alert('Formato inválido');
+            } catch(e) {
+                alert('JSON inválido');
+            }
+        });
+        document.getElementById('exportInter').addEventListener('click', ()=> {
+            document.getElementById('interJSON').value = JSON.stringify(DB.interactives, null, 2);
+        });
+
+        document.getElementById('loadMaps').addEventListener('click', ()=> {
+            try {
+                const obj = JSON.parse(document.getElementById('mapsJSON').value); if (typeof obj === 'object') {
+                    DB.maps = obj;
+                    renderMaps();
+                    saveToLocal();
+                    updateDashboard();
+                    alert('Mapas cargados');
+                } else alert('Formato inválido');
+            } catch(e) {
+                alert('JSON inválido');
+            }
+        });
+        document.getElementById('exportMaps').addEventListener('click', ()=> {
+            document.getElementById('mapsJSON').value = JSON.stringify(DB.maps || {}, null, 2);
+        });
+
+        /* Quiz: sequential behavior */
+        let filteredQuestions = DB.questions.slice();
+        let qIndex = 0;
+        let currentQuestion = null;
+        function renderQuizTopics() {
+            const select = document.getElementById('quizTopic');
+            if (!select) return;
+            select.innerHTML = '';
+            const allOption = document.createElement('option');
+            allOption.value = 'all';
+            allOption.textContent = 'Todos los bloques';
+            select.appendChild(allOption);
+            const topics = Array.isArray(DB.quizTopics) ? DB.quizTopics: [];
+            topics.forEach(topic => {
+                if (!topic || !topic.value) return;
+                const option = document.createElement('option');
+                option.value = topic.value;
+                option.textContent = topic.label || topic.value;
+                select.appendChild(option);
+            });
+        }
+        function refreshFiltered(topic) {
+            filteredQuestions = (topic && topic !== 'all') ? DB.questions.filter(q=> q.topic === topic): DB.questions.slice();
+            qIndex = 0;
+            document.getElementById('qTotal').textContent = filteredQuestions.length;
+            renderCurrentQuestion();
+        }
+        function renderCurrentQuestion() {
+            if (filteredQuestions.length === 0) {
+                document.getElementById('qText').textContent = 'No hay preguntas en este tema.'; document.getElementById('qOptions').innerHTML = ''; document.getElementById('qNumber').textContent = '0'; return;
+            }
+            if (qIndex < 0) qIndex = 0;
+            if (qIndex >= filteredQuestions.length) qIndex = filteredQuestions.length -1;
+            const q = filteredQuestions[qIndex];
+            document.getElementById('qText').textContent = q.text;
+            const opts = document.getElementById('qOptions'); opts.innerHTML = '';
+            const questionOptions = Array.isArray(q.options) ? q.options: [];
+            questionOptions.forEach((o, i)=> {
+                const label = document.createElement('label'); label.className = 'block'; label.innerHTML = `<input type="radio" name="qopt" value="${i}"> ${escapeHtml(o)}`; opts.appendChild(label);
+            });
+            document.getElementById('qNumber').textContent = (qIndex+1);
+            document.getElementById('qTotal').textContent = filteredQuestions.length;
+            currentQuestion = q;
+        }
+        document.getElementById('quizTopic').addEventListener('change', ()=> {
+            refreshFiltered(document.getElementById('quizTopic').value);
+        });
+        document.getElementById('nextQ').addEventListener('click', ()=> {
+            if (filteredQuestions.length === 0) {
+                alert('No hay preguntas.'); return;
+            } if (qIndex < filteredQuestions.length-1) qIndex++; renderCurrentQuestion();
+        });
+        document.getElementById('prevQ').addEventListener('click', ()=> {
+            if (filteredQuestions.length === 0) {
+                alert('No hay preguntas.'); return;
+            } if (qIndex > 0) qIndex--; renderCurrentQuestion();
+        });
+        document.getElementById('checkA').addEventListener('click', () => {
+            const sel = document.querySelector('input[name="qopt"]:checked');
+            const res = document.getElementById('qResult');
+
+            if (!currentQuestion) {
+                res.textContent = 'No hay pregunta seleccionada.';
+                return;
+            }
+
+            if (!sel) {
+                res.textContent = 'Selecciona una opción.';
+                return;
+            }
+
+            const itemId = currentQuestion.id || `quiz-${qIndex}`;
+
+            if (parseInt(sel.value) === currentQuestion.answer) {
+                res.textContent = '✅ Correcto. ' + (currentQuestion.explain || '');
+                markItem('quiz', itemId, true);
+            } else {
+                res.textContent = '❌ Incorrecto. ' + (currentQuestion.explain || '');
+                markItem('quiz', itemId, false);
+            }
+        });
+
+        document.getElementById('showAll').addEventListener('click', ()=> {
+            document.getElementById('questionsJSON').value = JSON.stringify(DB.questions, null, 2);
+        });
+
+        /* Load questions JSON editor */
+        document.getElementById('loadQuestions').addEventListener('click', ()=> {
+            try {
+                const arr = JSON.parse(document.getElementById('questionsJSON').value); if (Array.isArray(arr)) {
+                    DB.questions = arr;
+                    refreshFiltered(document.getElementById('quizTopic').value);
+                    renderAll();
+                    saveToLocal();
+                    updateDashboard();
+                    alert('Preguntas cargadas');
+                } else alert('Formato inválido (se espera array).');
+            } catch(e) {
+                alert('JSON inválido');
+            }
+        });
+        document.getElementById('loadQuizTopics').addEventListener('click', ()=> {
+            try {
+                const arr = JSON.parse(document.getElementById('quizTopicsJSON').value);
+                if (Array.isArray(arr)) {
+                    DB.quizTopics = arr;
+                    renderQuizTopics();
+                    refreshFiltered(document.getElementById('quizTopic').value);
+                    saveToLocal();
+                    alert('Bloques del quiz cargados');
+                } else {
+                    alert('Formato inválido (se espera array).');
+                }
+            } catch(e) {
+                alert('JSON inválido');
+            }
+        });
+        document.getElementById('exportQuizTopics').addEventListener('click', ()=> {
+            document.getElementById('quizTopicsJSON').value = JSON.stringify(DB.quizTopics || [], null, 2);
+        });
+
+        /* Reset progress */
+        document.getElementById('reset').addEventListener('click', () => {
+            if (!confirm('Reiniciar todo el progreso?')) return;
+
+            localStorage.removeItem('progressBySection');
+            localStorage.removeItem('score');
+            localStorage.removeItem('block1');
+            localStorage.removeItem('block2');
+            localStorage.removeItem('block3');
+
+            updateDashboard();
+        });
+
+        /* initial render and quiz setup */
+        renderAll();
+        refreshFiltered('all');
+
+        /* =====================
+HOME JSON (SOLO INICIO)
+===================== */
+
+        document.getElementById("loadHomeJSON").addEventListener("click", () => {
+            try {
+                const data = JSON.parse(document.getElementById("homeJSON").value);
+
+                if (data.title) {
+                    document.getElementById("homeTitle").textContent = data.title;
+                }
+                if (data.description) {
+                    document.getElementById("homeDescription").innerHTML = data.description;
+                }
+            } catch (e) {
+                alert("JSON inválido en Inicio");
+            }
+        });
+
+        document.getElementById("exportHomeJSON").addEventListener("click", () => {
+            const data = {
+                title: document.getElementById("homeTitle").textContent,
+                description: document.getElementById("homeDescription").innerHTML
+            };
+            document.getElementById("homeJSON").value = JSON.stringify(data, null, 2);
+        });
+    </script>
+</body>
+</html>
